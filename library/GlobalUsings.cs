@@ -1,0 +1,1 @@
+global using ServcoX.EventSauce.Exceptions;
