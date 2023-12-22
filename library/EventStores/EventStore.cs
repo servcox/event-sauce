@@ -40,7 +40,7 @@ public sealed class EventStore
                 && !stream.IsArchived)
             .Select(EventStream.CreateFrom);
     }
-
+    
     public async Task CreateStream(String streamId, String streamType, CancellationToken cancellationToken)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
