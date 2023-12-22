@@ -2,9 +2,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure;
 using Azure.Data.Tables;
-using ServcoX.EventSauce.Exceptions;
 
-namespace ServcoX.EventSauce;
+namespace ServcoX.EventSauce.EventStores;
 
 public sealed class EventStore
 {

@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace ServcoX.EventSauce;
+namespace ServcoX.EventSauce.EventStores;
 
 public sealed class EventTypeResolver
 {

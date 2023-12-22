@@ -1,4 +1,4 @@
-namespace ServcoX.EventSauce;
+namespace ServcoX.EventSauce.Exceptions;
 
 public class OptimisticWriteInterruptedException :Exception
 {

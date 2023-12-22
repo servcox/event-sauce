@@ -1,7 +1,8 @@
 using System.Collections.Concurrent;
 using System.Reflection;
+using ServcoX.EventSauce.EventStores;
 
-namespace ServcoX.EventSauce;
+namespace ServcoX.EventSauce.Projections;
 
 public sealed class MemoryProjector<T> : IDisposable
 {

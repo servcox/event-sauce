@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace ServcoX.EventSauce;
+namespace ServcoX.EventSauce.EventStores;
 
 public readonly record struct Event(String StreamId, UInt64 Version, String Type, IEventBody? Body, String CreatedBy, DateTime CreatedAt)
 {
