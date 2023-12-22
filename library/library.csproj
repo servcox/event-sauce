@@ -1,38 +1,39 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <AssemblyName>ServcoX.EventSauce</AssemblyName>
-    <RootNamespace>ServcoX.EventSauce</RootNamespace>
-    <PackageId>ServcoX.EventSauce</PackageId>
-    <Title>ServcoX Event Sauce</Title>
-    <Description>Lightweight event sourcing library backed on Azure Table Storage</Description>
-    <PackageProjectUrl>https://github.com/servcox/event-sauce</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/servcox/event-sauce/blob/main/LICENSE</PackageLicenseUrl>
-    <PackageIcon>servco.png</PackageIcon>
-    <RepositoryUrl>https://github.com/servcox/event-sauce</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>eventsourcing</PackageTags>
-    <Company>ServcoX</Company>
-    <Product>Event Sauce</Product>
-    
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors>CS0612;CS0618;CA1024</WarningsNotAsErrors>
-    <NoWarn>CA1822;CA2007;CA1303;CA1058;CA1711;CA1000;CA1040;CA1716;CA1308</NoWarn>
-    <AnalysisMode>All</AnalysisMode>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AssemblyName>ServcoX.EventSauce</AssemblyName>
+        <RootNamespace>ServcoX.EventSauce</RootNamespace>
+        <PackageId>ServcoX.EventSauce</PackageId>
+        <Title>ServcoX Event Sauce</Title>
+        <Description>Lightweight event sourcing library backed on Azure Table Storage</Description>
+        <PackageProjectUrl>https://github.com/servcox/event-sauce</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/servcox/event-sauce/blob/main/LICENSE</PackageLicenseUrl>
+        <PackageIcon>servco.png</PackageIcon>
+        <RepositoryUrl>https://github.com/servcox/event-sauce</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>eventsourcing</PackageTags>
+        <Company>ServcoX</Company>
+        <Product>Event Sauce</Product>
 
-  <ItemGroup>
-    <None Update="servco.png">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
-  </ItemGroup>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <WarningsNotAsErrors>CS0612;CS0618;CA1024</WarningsNotAsErrors>
+        <NoWarn>CA1822;CA2007;CA1303;CA1058;CA1711;CA1000;CA1040;CA1716;CA1308</NoWarn>
+        <AnalysisMode>All</AnalysisMode>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Azure.Data.Tables" Version="12.8.2" />
-  </ItemGroup>
+    <ItemGroup>
+        <None Update="servco.png">
+            <Pack>True</Pack>
+            <PackagePath></PackagePath>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Azure.Data.Tables" Version="12.8.2"/>
+    </ItemGroup>
 
 </Project>

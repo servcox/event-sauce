@@ -1,16 +1,16 @@
 namespace ServcoX.EventSauce.Exceptions;
 
-public class OptimisticWriteInterruptedException :Exception
+public class OptimisticWriteInterruptedException : Exception
 {
     public OptimisticWriteInterruptedException()
     {
     }
-    
-    public OptimisticWriteInterruptedException(string message) : base(message)
+
+    public OptimisticWriteInterruptedException(String message) : base(message)
     {
     }
 
-    public OptimisticWriteInterruptedException(string message, Exception innerException) : base(message, innerException)
+    public OptimisticWriteInterruptedException(String message, Exception innerException) : base(message, innerException)
     {
     }
 }

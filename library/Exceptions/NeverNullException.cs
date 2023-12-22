@@ -5,12 +5,12 @@ public class NeverNullException : Exception
     public NeverNullException()
     {
     }
-    
-    public NeverNullException(string message) : base(message)
+
+    public NeverNullException(String message) : base(message)
     {
     }
 
-    public NeverNullException(string message, Exception innerException) : base(message, innerException)
+    public NeverNullException(String message, Exception innerException) : base(message, innerException)
     {
     }
 }

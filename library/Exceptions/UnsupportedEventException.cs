@@ -5,7 +5,7 @@ public class UnsupportedEventException : Exception
     public UnsupportedEventException()
     {
     }
-    
+
     public UnsupportedEventException(String message) : base(message)
     {
     }
