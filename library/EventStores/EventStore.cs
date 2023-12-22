@@ -32,11 +32,10 @@ public sealed class EventStore
     {
         if (String.IsNullOrEmpty(streamType)) throw new ArgumentNullOrDefaultException(nameof(streamType));
 
+        streamType = streamType.ToUpperInvariant();
         return _streamTable
             .Query<EventStreamRecord>(stream =>
-                #pragma warning disable CA1862
-                stream.Type == streamType.ToUpperInvariant()
-                #pragma warning restore CA1862
+                stream.Type.Equals(streamType, StringComparison.OrdinalIgnoreCase)
                 && !stream.IsArchived)
             .Select(EventStream.CreateFrom);
     }
