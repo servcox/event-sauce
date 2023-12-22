@@ -4,6 +4,7 @@ using ServcoX.EventSauce.EventStores;
 
 namespace ServcoX.EventSauce.Projections;
 
+[Obsolete("Use EventStore.CreateProjection instead")]
 public sealed class MemoryProjector<T> : IDisposable
 {
     private readonly String _streamType;

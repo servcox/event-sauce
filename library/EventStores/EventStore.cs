@@ -134,4 +134,19 @@ public sealed class EventStore
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
         return streamRecordWrapper.Value;
     }
+    
+    public void CreateProjection<TProjection>(String streamType, Func<IProjector<TProjection>> generateProjector)
+    {
+        throw new NotImplementedException();
+    }
+
+    public IEnumerable<TProjection> QueryProjection<TProjection>(Func<TProjection, Boolean> query)
+    {
+        throw new NotImplementedException();
+    }
+
+    public TProjection FindProjection<TProjection>(String streamId)
+    {
+        throw new NotImplementedException();
+    }
 }
