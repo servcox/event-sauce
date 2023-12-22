@@ -46,14 +46,14 @@ public sealed class EventStore
         if (String.IsNullOrEmpty(streamType)) throw new ArgumentNullOrDefaultException(nameof(streamType));
 
         streamType = streamType.ToUpperInvariant();
-        await _streamTable.AddEntityAsync(new EventStreamRecord(streamId, streamType, ImplicitInitialVersion, false), cancellationToken);
+        await _streamTable.AddEntityAsync(new EventStreamRecord(streamId, streamType, ImplicitInitialVersion, false), cancellationToken).ConfigureAwait(false);
     }
 
     public async Task CreateStreamIfNotExist(String streamId, String streamType, CancellationToken cancellationToken)
     {
         try
         {
-            await CreateStream(streamId, streamType, cancellationToken);
+            await CreateStream(streamId, streamType, cancellationToken).ConfigureAwait(false);
         }
         catch (RequestFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
         {
@@ -64,9 +64,9 @@ public sealed class EventStore
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
-        var streamRecord = await _streamTable.GetEntityAsync<EventStreamRecord>(streamId, streamId, cancellationToken: cancellationToken) ?? throw new NeverNullException();
+        var streamRecord = await _streamTable.GetEntityAsync<EventStreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false) ?? throw new NeverNullException();
         streamRecord.Value.IsArchived = true;
-        await _streamTable.UpdateEntityAsync(streamRecord.Value, streamRecord.Value.ETag, TableUpdateMode.Replace, cancellationToken);
+        await _streamTable.UpdateEntityAsync(streamRecord.Value, streamRecord.Value.ETag, TableUpdateMode.Replace, cancellationToken).ConfigureAwait(false);
     }
 
     public Task WriteStream(String streamId, IEventBody payload, String createdBy, CancellationToken cancellationToken) =>
@@ -82,7 +82,7 @@ public sealed class EventStore
         if (payloads.Length == 0) return;
         if (payloads.Length >= MaxEventsInWrite) throw new InvalidOperationException("At most 100 events can be queued in a writer before a commit is required");
 
-        var streamRecord = await GetStreamRecord(streamId, cancellationToken);
+        var streamRecord = await GetStreamRecord(streamId, cancellationToken).ConfigureAwait(false);
 
         var batch = payloads.Select(payload =>
         {
@@ -102,14 +102,14 @@ public sealed class EventStore
         try
         {
             // See https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/tables/Azure.Data.Tables/samples/Sample6TransactionalBatch.md
-            await _eventTable.SubmitTransactionAsync(batch, cancellationToken);
+            await _eventTable.SubmitTransactionAsync(batch, cancellationToken).ConfigureAwait(false);
         }
         catch (TableTransactionFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
         {
             throw new OptimisticWriteInterruptedException("Write to this stream interrupted by a preceding write. Retry the operation.");
         }
 
-        await _streamTable.UpdateEntityAsync(streamRecord, streamRecord.ETag, TableUpdateMode.Replace, cancellationToken);
+        await _streamTable.UpdateEntityAsync(streamRecord, streamRecord.ETag, TableUpdateMode.Replace, cancellationToken).ConfigureAwait(false);
     }
 
     public IEnumerable<Event> ReadStream(String streamId, UInt64 minVersion = ImplicitInitialVersion)
@@ -130,7 +130,7 @@ public sealed class EventStore
     
     private async Task<EventStreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken)
     {
-        var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<EventStreamRecord>(streamId, streamId, cancellationToken: cancellationToken);
+        var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<EventStreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
         return streamRecordWrapper.Value;
     }
