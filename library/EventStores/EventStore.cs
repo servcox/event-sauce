@@ -135,6 +135,28 @@ public sealed class EventStore
         return streamRecordWrapper.Value;
     }
     
+    /* TODO
+     Logic
+       On startup
+            read remote projections *
+       On write
+            write events
+            wait for next sync to complete *
+            Release sync
+       Every 3 seconds:
+            trigger sync
+       On sync:
+           check for streams with changes
+                ListStream only returns streams modified since last run *
+           update local projection
+           update remote projection *
+                Optemistically, as it's probably been written by someone else
+      
+       
+       Tables
+       projection: ProjectionID/PK, StreamId/RK, Body...
+       
+       */
     public void CreateProjection<TProjection>(String streamType, Func<IProjector<TProjection>> generateProjector)
     {
         throw new NotImplementedException();
