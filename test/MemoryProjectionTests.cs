@@ -164,12 +164,18 @@ public class MemoryProjectorTests
 
         public Wrapper()
         {
-            Postfix = Guid.NewGuid().ToString("N").ToUpperInvariant();
+            var postfix = Guid.NewGuid().ToString("N").ToUpperInvariant();
+            var streamTableName = $"stream{postfix}";
+            var eventTableName = $"event{postfix}";
 
-            StreamTable = new(DevelopmentConnectionString, $"stream{Postfix}");
-            EventTable = new(DevelopmentConnectionString, $"event{Postfix}");
+            StreamTable = new(DevelopmentConnectionString, streamTableName);
+            EventTable = new(DevelopmentConnectionString, eventTableName);
 
-            EventStore = new(DevelopmentConnectionString, Postfix);
+            EventStore = new(DevelopmentConnectionString, cfg => cfg
+                .UseStreamTable(streamTableName)
+                .UseEventTable(eventTableName)
+                .CreateTablesIfMissing()
+            );
             Sut = new(Stream1Type, EventStore, SyncInterval);
         }
 

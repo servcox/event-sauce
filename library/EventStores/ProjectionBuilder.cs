@@ -5,7 +5,7 @@ using System.Collections.ObjectModel;
 
 namespace ServcoX.EventSauce.EventStores;
 
-public sealed class ProjectionBuilder<TProjection> : IProjectionBuilder
+public sealed class ProjectionBuilder<TProjection> : IProjectionBuilder where TProjection : new()
 {
     public Type Type { get; } = typeof(TProjection);
     public Dictionary<Type, Collection<Object>> EventHandlers { get; } = new();

@@ -14,10 +14,10 @@ public sealed class EventStoreConfiguration
     public String StreamTableName { get; set; } = "stream";
     public String EventTableName { get; set; } = "event";
     public String ProjectionTableName { get; set; } = "projection";
-    public Boolean CreateTablesIfMissing { get; set; }
+    public Boolean ShouldCreateTableIfMissing { get; set; }
     public TimeSpan? CheckUnprojectedEventsInterval { get; set; }
 
-    public Dictionary<String, Collection<IProjectionBuilder>> Projections { get; } = new();
+    public Dictionary<Type, IProjectionBuilder> Projections { get; } = new();
 
     public JsonSerializerOptions SerializationOptions { get; set; } = new()
     {
@@ -48,15 +48,22 @@ public sealed class EventStoreConfiguration
         return this;
     }
 
-    public EventStoreConfiguration DefineProjection<TProjection>(String streamType, Action<ProjectionBuilder<TProjection>> build)
+    public EventStoreConfiguration CreateTablesIfMissing()
+    {
+        ShouldCreateTableIfMissing = true;
+        return this;
+    }
+
+    public EventStoreConfiguration DefineProjection<TProjection>(String streamType, UInt64 version, Action<ProjectionBuilder<TProjection>> build) where TProjection : new()
     {
         ArgumentNullException.ThrowIfNull(build);
-        if (!Projections.TryGetValue(streamType, out var set)) set = Projections[streamType] = new();
-        if (set.Any(a => a.Type == typeof(TProjection))) throw new AlreadyExistsException();
-
+        // TODO: Where to store streamType?
+        // TODO: Where to store version?
+        
+        var type = typeof(TProjection);
         var builder = new ProjectionBuilder<TProjection>();
         build(builder);
-        set.Add(builder);
+        if (!Projections.TryAdd(type, builder)) throw new AlreadyExistsException();
         return this;
     }
 }

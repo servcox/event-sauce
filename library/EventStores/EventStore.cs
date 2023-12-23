@@ -13,7 +13,7 @@ public sealed class EventStore
     private readonly TableClient _projectionTable;
     private readonly EventTypeResolver _eventTypeResolver = new();
     private readonly EventStoreConfiguration _configuration;
-    
+
     public EventStore(String connectionString, Action<EventStoreConfiguration>? configure = null)
     {
         if (String.IsNullOrEmpty(connectionString)) throw new ArgumentNullOrDefaultException(nameof(connectionString));
@@ -24,7 +24,7 @@ public sealed class EventStore
         _eventTable = new(connectionString, _configuration.EventTableName);
         _projectionTable = new(connectionString, _configuration.ProjectionTableName);
 
-        if (_configuration.CreateTablesIfMissing)
+        if (_configuration.ShouldCreateTableIfMissing)
         {
             _streamTable.CreateIfNotExists();
             _eventTable.CreateIfNotExists();
@@ -51,7 +51,14 @@ public sealed class EventStore
         if (String.IsNullOrEmpty(streamType)) throw new ArgumentNullOrDefaultException(nameof(streamType));
 
         streamType = streamType.ToUpperInvariant();
-        await _streamTable.AddEntityAsync(new EventStreamRecord(streamId, streamType, ImplicitInitialVersion, false), cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _streamTable.AddEntityAsync(new EventStreamRecord(streamId, streamType, ImplicitInitialVersion, false), cancellationToken).ConfigureAwait(false);
+        }
+        catch (RequestFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
+        {
+            throw new AlreadyExistsException();
+        }
     }
 
     public async Task CreateStreamIfNotExist(String streamId, String streamType, CancellationToken cancellationToken)
@@ -60,7 +67,7 @@ public sealed class EventStore
         {
             await CreateStream(streamId, streamType, cancellationToken).ConfigureAwait(false);
         }
-        catch (RequestFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
+        catch (AlreadyExistsException)
         {
         }
     }
@@ -133,41 +140,46 @@ public sealed class EventStore
             });
     }
 
+
+    public TProjection ReadProjection<TProjection>(String streamId) where TProjection : new()
+    {
+        var events = ReadStream(streamId).ToList();
+        var projection = new TProjection();
+        ApplyEvents(projection, events);
+        return projection;
+    }
+
+    private void ApplyEvents<TProjection>(TProjection projection, List<Event> events) where TProjection : new()
+    {
+        var type = typeof(TProjection);
+        if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
+
+        foreach (var evt in events)
+        {
+            var specificHandlerFound = false;
+            var eventType = _eventTypeResolver.TryDecode(evt.Type);
+            if (eventType is not null)
+            {
+                if (builder.EventHandlers.TryGetValue(eventType, out var handlers))
+                {
+                    specificHandlerFound = true;
+                    foreach (var handler in handlers) ((Action<TProjection, Object, Event>)handler)(projection, evt.Body!, evt);
+                }
+            }
+
+            if (!specificHandlerFound)
+            {
+                foreach (var handler in builder.FallbackHandlers) ((Action<TProjection, Event>)handler)(projection, evt);
+            }
+
+            foreach (var handler in builder.PromiscuousHandlers) ((Action<TProjection, Event>)handler)(projection, evt);
+        }
+    }
+
     private async Task<EventStreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken)
     {
         var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<EventStreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
         return streamRecordWrapper.Value;
     }
-
-    /* TODO
-     Logic
-       On startup
-            read remote projections *
-       On write
-            write events
-            wait for next sync to complete *
-            Release sync
-       Every 3 seconds:
-            trigger sync
-       On sync:
-           check for streams with changes
-                ListStream only returns streams modified since last run *
-           update local projection
-           update remote projection *
-                Optemistically, as it's probably been written by someone else
-
-
-       Tables
-       projection: ProjectionID/PK, StreamId/RK, Body...
-
-       */
-
-
-
-    public TProjection ReadProjection<TProjection>(String streamId)
-    {
-        throw new NotImplementedException();
-    }
-
 }

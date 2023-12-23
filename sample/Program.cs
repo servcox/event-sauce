@@ -7,7 +7,7 @@ var store = new EventStore(connectionString, cfg => cfg
     .UseEventTable("event")
     .UseProjectionTable("projection")
     .CheckForUnprojectedEventsEvery(TimeSpan.FromSeconds(5))
-    .DefineProjection<Cake>(streamType, builder => builder
+    .DefineProjection<Cake>(streamType, 1, builder => builder
         .On<CakeIced>((projection, body, evt) => projection.Color = body.Color)
         .On<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
         .OnOther((projection, evt) => { })
