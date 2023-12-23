@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Azure;
 using Azure.Data.Tables;
 
@@ -11,21 +10,26 @@ public sealed class EventStore
     private const Int32 MaxEventsInWrite = 100; // Azure limit
     private readonly TableClient _streamTable;
     private readonly TableClient _eventTable;
+    private readonly TableClient _projectionTable;
     private readonly EventTypeResolver _eventTypeResolver = new();
+    private readonly EventStoreConfiguration _configuration;
 
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
-    };
-
-    public EventStore(String connectionString, String? postfix = null)
+    public EventStore(String connectionString, Action<EventStoreConfiguration>? configure = null)
     {
         if (String.IsNullOrEmpty(connectionString)) throw new ArgumentNullOrDefaultException(nameof(connectionString));
+        _configuration = new();
+        configure?.Invoke(_configuration);
 
-        _streamTable = new(connectionString, postfix is null ? "stream" : $"stream{postfix.ToUpperInvariant()}");
-        _streamTable.CreateIfNotExists();
-        _eventTable = new(connectionString, postfix is null ? "event" : $"event{postfix.ToUpperInvariant()}");
-        _eventTable.CreateIfNotExists();
+        _streamTable = new(connectionString, _configuration.StreamTableName);
+        _eventTable = new(connectionString, _configuration.EventTableName);
+        _projectionTable = new(connectionString, _configuration.ProjectionTableName);
+
+        if (_configuration.CreateTablesIfMissing)
+        {
+            _streamTable.CreateIfNotExists();
+            _eventTable.CreateIfNotExists();
+            _projectionTable.CreateIfNotExists();
+        }
     }
 
     public IEnumerable<EventStream> ListStreams(String streamType)
@@ -39,7 +43,7 @@ public sealed class EventStore
                 && !stream.IsArchived)
             .Select(EventStream.CreateFrom);
     }
-    
+
     public async Task CreateStream(String streamId, String streamType, CancellationToken cancellationToken)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
@@ -87,7 +91,7 @@ public sealed class EventStore
         var batch = payloads.Select(payload =>
         {
             var type = _eventTypeResolver.Encode(payload.GetType());
-            var body = JsonSerializer.Serialize((Object)payload, SerializerOptions);
+            var body = JsonSerializer.Serialize((Object)payload, _configuration.SerializationOptions);
             var version = ++streamRecord.LatestVersion;
 
             return new TableTransactionAction(TableTransactionActionType.Add, new EventRecord(
@@ -123,18 +127,18 @@ public sealed class EventStore
             .Select(eventRecord =>
             {
                 var type = _eventTypeResolver.TryDecode(eventRecord.Type);
-                var body = type is null ? null : (IEventBody)JsonSerializer.Deserialize(eventRecord.Body, type, SerializerOptions)! ?? throw new NeverNullException();
+                var body = type is null ? null : (IEventBody)JsonSerializer.Deserialize(eventRecord.Body, type, _configuration.SerializationOptions)! ?? throw new NeverNullException();
                 return Event.CreateFrom(eventRecord, body);
             });
     }
-    
+
     private async Task<EventStreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken)
     {
         var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<EventStreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
         return streamRecordWrapper.Value;
     }
-    
+
     /* TODO
      Logic
        On startup
@@ -151,18 +155,22 @@ public sealed class EventStore
            update local projection
            update remote projection *
                 Optemistically, as it's probably been written by someone else
-      
-       
+
+
        Tables
        projection: ProjectionID/PK, StreamId/RK, Body...
-       
+
        */
-    public void CreateProjection<TProjection>(String streamType, Func<IProjector<TProjection>> generateProjector)
+
+    // TODO: Check everything is sealed
+    public void CreateProjection<TProjection>(String streamType, Action<ProjectionBuilder<TProjection>> builder)
     {
         throw new NotImplementedException();
     }
 
-    public IEnumerable<TProjection> QueryProjection<TProjection>(Func<TProjection, Boolean> query)
+    public IEnumerable<TProjection> QueryProjection<TProjection>(String key, String value) => QueryProjection<TProjection>(new Dictionary<String, String> { [key] = value });
+
+    public IEnumerable<TProjection> QueryProjection<TProjection>(IDictionary<String, String> query)
     {
         throw new NotImplementedException();
     }
