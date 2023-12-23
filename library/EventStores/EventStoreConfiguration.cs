@@ -15,7 +15,7 @@ public sealed class EventStoreConfiguration
     public String EventTableName { get; set; } = "event";
     public String ProjectionTableName { get; set; } = "projection";
     public Boolean CreateTablesIfMissing { get; set; }
-    public TimeSpan CheckUnprojectedEventsInterval { get; set; }
+    public TimeSpan? CheckUnprojectedEventsInterval { get; set; }
 
     public Dictionary<String, Collection<IProjectionBuilder>> Projections { get; } = new();
 

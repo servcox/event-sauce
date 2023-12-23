@@ -31,9 +31,8 @@ foreach (var evt in store.ReadStream(streamId, 0)) // <== Can pick a greater ver
     Console.WriteLine(evt.Version + ": " + evt.Body);
 }
 
-store.FindProjection<Cake>(streamId);
+var projection = store.ReadProjection<Cake>(streamId);
 
-store.QueryProjection<Cake>(nameof(Cake.Color), "BLUE");
 
 
 public record Cake

@@ -13,7 +13,7 @@ public sealed class EventStore
     private readonly TableClient _projectionTable;
     private readonly EventTypeResolver _eventTypeResolver = new();
     private readonly EventStoreConfiguration _configuration;
-
+    
     public EventStore(String connectionString, Action<EventStoreConfiguration>? configure = null)
     {
         if (String.IsNullOrEmpty(connectionString)) throw new ArgumentNullOrDefaultException(nameof(connectionString));
@@ -39,8 +39,9 @@ public sealed class EventStore
         streamType = streamType.ToUpperInvariant();
         return _streamTable
             .Query<EventStreamRecord>(stream =>
-                stream.Type.Equals(streamType, StringComparison.OrdinalIgnoreCase)
-                && !stream.IsArchived)
+                stream.Type.Equals(streamType, StringComparison.OrdinalIgnoreCase) &&
+                !stream.IsArchived
+            )
             .Select(EventStream.CreateFrom);
     }
 
@@ -162,21 +163,11 @@ public sealed class EventStore
 
        */
 
-    // TODO: Check everything is sealed
-    public void CreateProjection<TProjection>(String streamType, Action<ProjectionBuilder<TProjection>> builder)
+
+
+    public TProjection ReadProjection<TProjection>(String streamId)
     {
         throw new NotImplementedException();
     }
 
-    public IEnumerable<TProjection> QueryProjection<TProjection>(String key, String value) => QueryProjection<TProjection>(new Dictionary<String, String> { [key] = value });
-
-    public IEnumerable<TProjection> QueryProjection<TProjection>(IDictionary<String, String> query)
-    {
-        throw new NotImplementedException();
-    }
-
-    public TProjection FindProjection<TProjection>(String streamId)
-    {
-        throw new NotImplementedException();
-    }
 }
