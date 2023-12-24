@@ -37,6 +37,9 @@ public sealed class EventStore
         }
     }
 
+    /// <remarks>
+    /// This is an expensive operation, requiring a scan of all streams.
+    /// </remarks>
     public IEnumerable<Stream> ListStreams(String streamType)
     {
         if (String.IsNullOrEmpty(streamType)) throw new ArgumentNullOrDefaultException(nameof(streamType));

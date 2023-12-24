@@ -17,7 +17,7 @@ public sealed class StreamRecord : ITableEntity
     public StreamRecord(String streamId, String type, UInt64 latestVersion, Boolean isArchived)
     {
         StreamId = streamId;
-        Type = type; // TODO!!
+        Type = type;
         LatestVersion = latestVersion;
         IsArchived = isArchived;
     }
