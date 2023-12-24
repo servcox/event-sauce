@@ -3,6 +3,7 @@ using Azure;
 using Azure.Data.Tables;
 using ServcoX.EventSauce.Utilities;
 
+// ReSharper disable UnusedMember.Global
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace ServcoX.EventSauce.TableRecords;
