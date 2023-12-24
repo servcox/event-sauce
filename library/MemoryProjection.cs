@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using ServcoX.EventSauce.Models;
+using Stream = ServcoX.EventSauce.Models.Stream;
 
 namespace ServcoX.EventSauce;
 
@@ -131,7 +132,7 @@ public sealed class MemoryProjector<T> : IDisposable
         applyMethod.Invoke(projection, new Object[] { body, evt });
     }
 
-    private static T CreateProjectionInstance(EventStream stream) => (T)(Activator.CreateInstance(typeof(T), stream.Id) ?? throw new NeverNullException());
+    private static T CreateProjectionInstance(Stream stream) => (T)(Activator.CreateInstance(typeof(T), stream.Id) ?? throw new NeverNullException());
 
     private MethodInfo? TryGetSpecificApplyForType(Type eventTypeName)
     {

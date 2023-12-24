@@ -104,7 +104,7 @@ public class MemoryProjectorTests
 
         await wrapper.InjectCakeStream1();
         await wrapper.EventTable.AddEntityAsync(new EventRecord(Stream1Id, 4, "UNEXPECTED", "{}", UserId));
-        await wrapper.StreamTable.UpdateEntityAsync(new EventStreamRecord(Stream1Id, Stream1Type.ToUpperInvariant(), 4, false), ETag.All, TableUpdateMode.Replace);
+        await wrapper.StreamTable.UpdateEntityAsync(new StreamRecord(Stream1Id, Stream1Type.ToUpperInvariant(), 4, false), ETag.All, TableUpdateMode.Replace);
         wrapper.Sut.SyncNow();
         var projection = wrapper.Sut.Where(_ => true).Single();
         projection.FallbackEvents.Should().Be(1);

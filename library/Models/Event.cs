@@ -1,22 +1,21 @@
-using System.Globalization;
 using ServcoX.EventSauce.TableRecords;
 
 namespace ServcoX.EventSauce.Models;
 
 public readonly record struct Event(String StreamId, UInt64 Version, String Type, IEventBody? Body, String CreatedBy, DateTime CreatedAt)
 {
-    public static Event CreateFrom(EventRecord eventRecord, IEventBody? body)
+    public static Event CreateFrom(EventRecord record, IEventBody? body)
     {
-        ArgumentNullException.ThrowIfNull(eventRecord);
+        ArgumentNullException.ThrowIfNull(record);
         
         return new()
         {
-            StreamId = eventRecord.PartitionKey,
-            Version = UInt64.Parse(eventRecord.RowKey, CultureInfo.InvariantCulture),
-            Type = eventRecord.Type,
+            StreamId = record.StreamId,
+            Version = record.Version,
+            Type = record.Type,
             Body = body,
-            CreatedBy = eventRecord.CreatedBy,
-            CreatedAt = eventRecord.Timestamp?.UtcDateTime ?? new DateTime(),
+            CreatedBy = record.CreatedBy,
+            CreatedAt = record.Timestamp?.UtcDateTime ?? new DateTime(),
         };
     }
 }

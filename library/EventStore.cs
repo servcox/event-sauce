@@ -5,6 +5,7 @@ using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
 using ServcoX.EventSauce.Utilities;
+using Stream = ServcoX.EventSauce.Models.Stream;
 
 namespace ServcoX.EventSauce;
 
@@ -36,17 +37,17 @@ public sealed class EventStore
         }
     }
 
-    public IEnumerable<EventStream> ListStreams(String streamType)
+    public IEnumerable<Stream> ListStreams(String streamType)
     {
         if (String.IsNullOrEmpty(streamType)) throw new ArgumentNullOrDefaultException(nameof(streamType));
 
         streamType = streamType.ToUpperInvariant();
         return _streamTable
-            .Query<EventStreamRecord>(stream =>
+            .Query<StreamRecord>(stream =>
                 stream.Type.Equals(streamType, StringComparison.OrdinalIgnoreCase) &&
                 !stream.IsArchived
             )
-            .Select(EventStream.CreateFrom);
+            .Select(Stream.CreateFrom);
     }
 
     public async Task CreateStream(String streamId, String streamType, CancellationToken cancellationToken)
@@ -57,7 +58,7 @@ public sealed class EventStore
         streamType = streamType.ToUpperInvariant();
         try
         {
-            await _streamTable.AddEntityAsync(new EventStreamRecord(streamId, streamType, ImplicitInitialVersion, false), cancellationToken).ConfigureAwait(false);
+            await _streamTable.AddEntityAsync(new StreamRecord(streamId, streamType, ImplicitInitialVersion, false), cancellationToken).ConfigureAwait(false);
         }
         catch (RequestFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
         {
@@ -80,7 +81,7 @@ public sealed class EventStore
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
-        var streamRecord = await _streamTable.GetEntityAsync<EventStreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false) ?? throw new NeverNullException();
+        var streamRecord = await _streamTable.GetEntityAsync<StreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false) ?? throw new NeverNullException();
         streamRecord.Value.IsArchived = true;
         await _streamTable.UpdateEntityAsync(streamRecord.Value, streamRecord.Value.ETag, TableUpdateMode.Replace, cancellationToken).ConfigureAwait(false);
     }
@@ -189,9 +190,9 @@ public sealed class EventStore
         }
     }
 
-    private async Task<EventStreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken)
+    private async Task<StreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken)
     {
-        var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<EventStreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<StreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
         return streamRecordWrapper.Value;
     }

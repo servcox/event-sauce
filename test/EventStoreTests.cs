@@ -19,7 +19,7 @@ public class EventStoreTests
     private const String StreamId2 = "stream-2";
     private const String StreamId3 = "stream-3";
 
-    private static readonly List<EventStreamRecord> Streams = new()
+    private static readonly List<StreamRecord> Streams = new()
     {
         new(StreamId1, StreamType1.ToUpperInvariant(), 3, false),
         new(StreamId2, StreamType1.ToUpperInvariant(), 0, false),
@@ -59,7 +59,7 @@ public class EventStoreTests
         using var wrapper = new Wrapper();
         var streamId = Guid.NewGuid().ToString("N");
         await wrapper.Sut.CreateStream(streamId, StreamType1, CancellationToken.None);
-        var stream = wrapper.StreamTable.Query<EventStreamRecord>()
+        var stream = wrapper.StreamTable.Query<StreamRecord>()
             .Single(stream => stream.PartitionKey == streamId && stream.RowKey == streamId);
 
         stream.Type.Should().Be(StreamType1.ToUpperInvariant());
@@ -82,7 +82,7 @@ public class EventStoreTests
         using var wrapper = new Wrapper();
         var streamId = Guid.NewGuid().ToString("N");
         await wrapper.Sut.CreateStreamIfNotExist(streamId, StreamType1, CancellationToken.None);
-        var stream = wrapper.StreamTable.Query<EventStreamRecord>()
+        var stream = wrapper.StreamTable.Query<StreamRecord>()
             .Single(stream => stream.PartitionKey == streamId && stream.RowKey == streamId);
 
         stream.Type.Should().Be(StreamType1.ToUpperInvariant());
@@ -104,7 +104,7 @@ public class EventStoreTests
     {
         using var wrapper = new Wrapper();
         await wrapper.Sut.ArchiveStream(StreamId1, CancellationToken.None);
-        var stream = wrapper.StreamTable.GetEntity<EventStreamRecord>(StreamId1, StreamId1).Value;
+        var stream = wrapper.StreamTable.GetEntity<StreamRecord>(StreamId1, StreamId1).Value;
         stream.LatestVersion.Should().Be(3);
         stream.IsArchived.Should().BeTrue();
     }
@@ -115,7 +115,7 @@ public class EventStoreTests
         using var wrapper = new Wrapper();
         var evt = new TestAEvent("a");
         await wrapper.Sut.WriteStream(StreamId1, evt, UserId, CancellationToken.None);
-        var stream = wrapper.StreamTable.GetEntity<EventStreamRecord>(StreamId1, StreamId1).Value;
+        var stream = wrapper.StreamTable.GetEntity<StreamRecord>(StreamId1, StreamId1).Value;
         stream.LatestVersion.Should().Be(4);
 
         var events = wrapper.EventTable.Query<EventRecord>(e => e.PartitionKey == StreamId1);
