@@ -163,7 +163,13 @@ public sealed class EventStore
                 if (builder.EventHandlers.TryGetValue(eventType, out var handlers))
                 {
                     specificHandlerFound = true;
-                    foreach (var handler in handlers) ((Action<TProjection, Object, Event>)handler)(projection, evt.Body!, evt);
+                    foreach (var handler in handlers)
+                    {
+                        var method = handler
+                            .GetType()
+                            .GetMethod(nameof(Action.Invoke)) ?? throw new NeverNullException();
+                        method.Invoke(handler, new Object?[] { projection, evt.Body, evt });
+                    }
                 }
             }
 
