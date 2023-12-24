@@ -11,7 +11,6 @@ namespace ServcoX.EventSauce;
 
 public sealed class EventStore
 {
-    private const UInt64 ImplicitInitialVersion = 0;
     private const Int32 MaxEventsInWrite = 100; // Azure limit
     private readonly TableClient _streamTable;
     private readonly TableClient _eventTable;
@@ -61,7 +60,11 @@ public sealed class EventStore
         streamType = streamType.ToUpperInvariant();
         try
         {
-            await _streamTable.AddEntityAsync(new StreamRecord(streamId, streamType, ImplicitInitialVersion, false), cancellationToken).ConfigureAwait(false);
+            await _streamTable.AddEntityAsync(new StreamRecord()
+            {
+                StreamId = streamId,
+                Type = streamType,
+            }, cancellationToken).ConfigureAwait(false);
         }
         catch (RequestFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
         {
@@ -110,13 +113,14 @@ public sealed class EventStore
             var body = JsonSerializer.Serialize((Object)payload, _configuration.SerializationOptions);
             var version = ++streamRecord.LatestVersion;
 
-            return new TableTransactionAction(TableTransactionActionType.Add, new EventRecord(
-                streamId,
-                version,
-                type,
-                body,
-                createdBy
-            ));
+            return new TableTransactionAction(TableTransactionActionType.Add, new EventRecord
+            {
+                StreamId = streamId,
+                Version = version,
+                Type = type,
+                Body = body,
+                CreatedBy = createdBy,
+            });
         });
 
         try
@@ -132,7 +136,7 @@ public sealed class EventStore
         await _streamTable.UpdateEntityAsync(streamRecord, streamRecord.ETag, TableUpdateMode.Replace, cancellationToken).ConfigureAwait(false);
     }
 
-    public IEnumerable<Event> ReadStream(String streamId, UInt64 minVersion = ImplicitInitialVersion)
+    public IEnumerable<Event> ReadStream(String streamId, UInt64 minVersion = 0)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
@@ -147,24 +151,23 @@ public sealed class EventStore
                 return Event.CreateFrom(eventRecord, body);
             });
     }
-    
+
     public TProjection ReadProjection<TProjection>(String streamId) where TProjection : new()
     {
         var type = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
-        
+
         // TODO: Load cached projection (builder.Key)
         var events = ReadStream(streamId).ToList();
         var projection = new TProjection();
         ApplyEvents(projection, events, builder); // TODO: Apply any new events
-        
+
         // TODO: Persist projection, if newer than what we have
         return projection;
     }
 
     private void ApplyEvents<TProjection>(TProjection projection, List<Event> events, IProjectionBuilder builder) where TProjection : new()
     {
-        
         foreach (var evt in events)
         {
             var specificHandlerFound = false;

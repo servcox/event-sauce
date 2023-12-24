@@ -103,8 +103,21 @@ public class MemoryProjectorTests
         using var wrapper = new Wrapper();
 
         await wrapper.InjectCakeStream1();
-        await wrapper.EventTable.AddEntityAsync(new EventRecord(Stream1Id, 4, "UNEXPECTED", "{}", UserId));
-        await wrapper.StreamTable.UpdateEntityAsync(new StreamRecord(Stream1Id, Stream1Type.ToUpperInvariant(), 4, false), ETag.All, TableUpdateMode.Replace);
+        await wrapper.EventTable.AddEntityAsync(new EventRecord
+        {
+            StreamId = Stream1Id,
+            Version = 4,
+            Type = "UNEXPECTED",
+            Body = "{}",
+            CreatedBy = UserId,
+        });
+        await wrapper.StreamTable.UpdateEntityAsync(new StreamRecord
+        {
+            StreamId = Stream1Id,
+            Type = Stream1Type.ToUpperInvariant(),
+            LatestVersion = 4,
+            IsArchived = false,
+        }, ETag.All, TableUpdateMode.Replace);
         wrapper.Sut.SyncNow();
         var projection = wrapper.Sut.Where(_ => true).Single();
         projection.FallbackEvents.Should().Be(1);
@@ -117,10 +130,10 @@ public class MemoryProjectorTests
         await wrapper.InjectCakeStream1();
         await wrapper.InjectCakeStream2();
         wrapper.Sut.SyncNow();
-        
+
         wrapper.Sut.Find(Stream1Id).Id.Should().Be(Stream1Id);
     }
-    
+
     [Fact]
     public async Task ThrowsExceptionWhenCantFind()
     {
@@ -128,10 +141,10 @@ public class MemoryProjectorTests
         await wrapper.InjectCakeStream1();
         await wrapper.InjectCakeStream2();
         wrapper.Sut.SyncNow();
-        
+
         Assert.Throws<NotFoundException>(() => wrapper.Sut.Find("bad"));
     }
-    
+
     [Fact]
     public async Task CanTryFind()
     {
@@ -139,10 +152,10 @@ public class MemoryProjectorTests
         await wrapper.InjectCakeStream1();
         await wrapper.InjectCakeStream2();
         wrapper.Sut.SyncNow();
-        
+
         wrapper.Sut.TryFind(Stream1Id)?.Id.Should().Be(Stream1Id);
     }
-    
+
     [Fact]
     public async Task CanReturnNullWhenCantTryFind()
     {
@@ -150,14 +163,13 @@ public class MemoryProjectorTests
         await wrapper.InjectCakeStream1();
         await wrapper.InjectCakeStream2();
         wrapper.Sut.SyncNow();
-        
+
         wrapper.Sut.TryFind("bad").Should().BeNull();
     }
 
     private class Wrapper : IDisposable
     {
         public EventStore EventStore { get; }
-        public String Postfix { get; }
         public MemoryProjector<Cake> Sut { get; }
         public TableClient StreamTable { get; }
         public TableClient EventTable { get; }

@@ -8,20 +8,6 @@ namespace ServcoX.EventSauce.TableRecords;
 
 public sealed class StreamRecord : ITableEntity
 {
-    public StreamRecord()
-    {
-        StreamId = String.Empty;
-        Type = String.Empty;
-    }
-
-    public StreamRecord(String streamId, String type, UInt64 latestVersion, Boolean isArchived)
-    {
-        StreamId = streamId;
-        Type = type;
-        LatestVersion = latestVersion;
-        IsArchived = isArchived;
-    }
-
     public String StreamId
     {
         get => PartitionKey;
@@ -32,7 +18,7 @@ public sealed class StreamRecord : ITableEntity
         }
     }
 
-    public String Type { get; set; }
+    public String Type { get; set; } = String.Empty;
     public UInt64 LatestVersion { get; set; }
     public Boolean IsArchived { get; set; }
 

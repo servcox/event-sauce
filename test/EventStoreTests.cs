@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Azure.Data.Tables;
 using FluentAssertions;
-using Microsoft.VisualBasic.CompilerServices;
 using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
 
@@ -21,9 +20,27 @@ public class EventStoreTests
 
     private static readonly List<StreamRecord> Streams = new()
     {
-        new(StreamId1, StreamType1.ToUpperInvariant(), 3, false),
-        new(StreamId2, StreamType1.ToUpperInvariant(), 0, false),
-        new(StreamId3, StreamType2.ToUpperInvariant(), 0, false),
+        new()
+        {
+            StreamId = StreamId1,
+            Type = StreamType1.ToUpperInvariant(),
+            LatestVersion = 3,
+            IsArchived = false,
+        },
+        new()
+        {
+            StreamId = StreamId2, 
+            Type = StreamType1.ToUpperInvariant(),
+            LatestVersion = 0, 
+            IsArchived = false,
+        },
+        new()
+        {
+            StreamId = StreamId3,
+            Type = StreamType2.ToUpperInvariant(), 
+            LatestVersion = 0, 
+            IsArchived = false,
+        },
     };
 
     private const String UserId = "user-1";
@@ -36,9 +53,30 @@ public class EventStoreTests
 
     private static readonly List<EventRecord> Events = new()
     {
-        new(StreamId1, 1, EventType1.ToUpperInvariant(), JsonSerializer.Serialize((Object)EventBody1), UserId),
-        new(StreamId1, 2, EventType2.ToUpperInvariant(), JsonSerializer.Serialize((Object)EventBody2), UserId),
-        new(StreamId1, 3, EventType3.ToUpperInvariant(), JsonSerializer.Serialize((Object)EventBody3), UserId),
+        new()
+        {
+            StreamId = StreamId1,
+            Version = 1,
+            Type = EventType1.ToUpperInvariant(),
+            Body = JsonSerializer.Serialize((Object)EventBody1),
+            CreatedBy = UserId,
+        },
+        new()
+        {
+            StreamId = StreamId1,
+            Version = 2,
+            Type = EventType2.ToUpperInvariant(),
+            Body = JsonSerializer.Serialize((Object)EventBody2),
+            CreatedBy = UserId,
+        },
+        new()
+        {
+            StreamId = StreamId1,
+            Version = 3,
+            Type = EventType3.ToUpperInvariant(),
+            Body = JsonSerializer.Serialize((Object)EventBody3),
+            CreatedBy = UserId,
+        },
     };
 
     [Fact]
@@ -140,7 +178,12 @@ public class EventStoreTests
     {
         using var wrapper = new Wrapper();
         // The following simulates a concurrency issue - the DB is broken after this!
-        await wrapper.EventTable.AddEntityAsync<EventRecord>(new(StreamId1, 4, string.Empty, string.Empty, UserId));
+        await wrapper.EventTable.AddEntityAsync<EventRecord>(new()
+        {
+            StreamId = StreamId1,
+            Version = 4,
+            CreatedBy = UserId,
+        });
         await Assert.ThrowsAsync<OptimisticWriteInterruptedException>(async () => await wrapper.Sut.WriteStream(StreamId1, new TestAEvent(), UserId, CancellationToken.None));
     }
 

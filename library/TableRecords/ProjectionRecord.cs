@@ -1,30 +1,28 @@
-using System.Globalization;
 using Azure;
 using Azure.Data.Tables;
-using ServcoX.EventSauce.Utilities;
 
 // ReSharper disable UnusedMember.Global
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace ServcoX.EventSauce.TableRecords;
 
-public sealed class EventRecord : ITableEntity
+public sealed class ProjectionRecord : ITableEntity
 {
-    public String StreamId
+    public String TypeId
     {
         get => PartitionKey;
         init => PartitionKey = value;
     }
 
-    public UInt64 Version
+    public String StreamId
     {
-        get => UInt64.Parse(RowKey, CultureInfo.InvariantCulture);
-        init => RowKey = RowKeyUtilities.EncodeVersion(value);
+        get => RowKey;
+        init => RowKey = value;
     }
 
-    public String Type { get; set; } = String.Empty;
     public String Body { get; set; } = String.Empty;
-    public String CreatedBy { get; set; } = String.Empty;
+    
+    public UInt64 Version { get; set; }
 
     /// <remarks>
     /// Use `StreamId` instead.
@@ -39,5 +37,5 @@ public sealed class EventRecord : ITableEntity
     public DateTimeOffset? Timestamp { get; set; }
     public ETag ETag { get; set; }
 
-    public override String ToString() => $"{StreamId}/{Type}@{Version}";
+    public override String ToString() => $"{TypeId}/{StreamId}@{Version}";
 }
