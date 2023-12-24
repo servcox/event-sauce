@@ -9,7 +9,7 @@ namespace ServcoX.EventSauce.Configurations;
 
 public sealed class ProjectionConfiguration<TProjection>(UInt32 version) : IProjectionBuilder where TProjection : new()
 {
-    public String Key { get; } = ModelIdentificationUtilities.ComputeKey(typeof(TProjection), version);
+    public String Key { get; } = ProjectionIdUtilities.Compute(typeof(TProjection), version);
     public Dictionary<Type, Collection<Object>> EventHandlers { get; } = new();
     public Collection<Object> FallbackHandlers { get; } = [];
     public Collection<Object> PromiscuousHandlers { get; } = [];
