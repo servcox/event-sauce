@@ -143,21 +143,24 @@ public sealed class EventStore
                 return Event.CreateFrom(eventRecord, body);
             });
     }
-
-
+    
     public TProjection ReadProjection<TProjection>(String streamId) where TProjection : new()
-    {
-        var events = ReadStream(streamId).ToList();
-        var projection = new TProjection();
-        ApplyEvents(projection, events);
-        return projection;
-    }
-
-    private void ApplyEvents<TProjection>(TProjection projection, List<Event> events) where TProjection : new()
     {
         var type = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
+        
+        // Load cached projection (builder.Key)
+        var events = ReadStream(streamId).ToList();
+        var projection = new TProjection();
+        ApplyEvents(projection, events, builder); // Apply any new events
+        
+        // Persist projection, if newer than what we have
+        return projection;
+    }
 
+    private void ApplyEvents<TProjection>(TProjection projection, List<Event> events, IProjectionBuilder builder) where TProjection : new()
+    {
+        
         foreach (var evt in events)
         {
             var specificHandlerFound = false;
