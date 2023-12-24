@@ -8,7 +8,7 @@ var store = new EventStore(connectionString, cfg => cfg
     .UseEventTable("event")
     .UseProjectionTable("projection")
     .CheckForUnprojectedEventsEvery(TimeSpan.FromSeconds(5))
-    .DefineProjection<Cake>(streamType, 1, builder => builder
+    .DefineProjection<Cake>(1, builder => builder
         .On<CakeIced>((projection, body, evt) => projection.Color = body.Color)
         .On<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
         .OnOther((projection, evt) => { })
@@ -33,7 +33,6 @@ foreach (var evt in store.ReadStream(streamId, 0)) // <== Can pick a greater ver
 }
 
 var projection = store.ReadProjection<Cake>(streamId);
-
 
 
 public record Cake

@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace ServcoX.EventSauce.Utilities;
 
-public static class RowKeyUtils
+public static class RowKeyUtilities
 {
     private static readonly String RowKeyFormat = new('0', UInt64.MaxValue.ToString(CultureInfo.InvariantCulture).Length);
 

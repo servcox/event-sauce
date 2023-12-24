@@ -53,14 +53,12 @@ public sealed class BaseConfiguration
         return this;
     }
 
-    public BaseConfiguration DefineProjection<TProjection>(String streamType, UInt64 version, Action<ProjectionConfiguration<TProjection>> build) where TProjection : new()
+    public BaseConfiguration DefineProjection<TProjection>(UInt32 version, Action<ProjectionConfiguration<TProjection>> build) where TProjection : new()
     {
         ArgumentNullException.ThrowIfNull(build);
-        // TODO: Where to store streamType?
-        // TODO: Where to store version?
         
         var type = typeof(TProjection);
-        var builder = new ProjectionConfiguration<TProjection>();
+        var builder = new ProjectionConfiguration<TProjection>(version);
         build(builder);
         if (!Projections.TryAdd(type, builder)) throw new AlreadyExistsException();
         return this;

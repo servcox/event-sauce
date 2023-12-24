@@ -18,7 +18,7 @@ public sealed class EventRecord : ITableEntity
     public EventRecord(String streamId, UInt64 version, String type, String body, String createdBy)
     {
         PartitionKey = streamId;
-        RowKey = RowKeyUtils.EncodeVersion(version);
+        RowKey = RowKeyUtilities.EncodeVersion(version);
         Type = type;
         Body = body;
         CreatedBy = createdBy;

@@ -228,7 +228,7 @@ public class EventStoreTests
                 .UseStreamTable(streamTableName)
                 .UseEventTable(eventTableName)
                 .UseProjectionTable(projectionTableName)
-                .DefineProjection<Projection>(StreamType1, 1, builder => builder
+                .DefineProjection<Projection>(1, builder => builder
                     .On<TestAEvent>((prj, body, evt) => prj.A++)
                     .On<TestBEvent>((prj, body, evt) => prj.B++)
                     .OnOther((prj, evt) => prj.Other++)

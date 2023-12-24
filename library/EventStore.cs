@@ -135,7 +135,7 @@ public sealed class EventStore
         return _eventTable
             .Query<EventRecord>(record =>
                 record.PartitionKey == streamId &&
-                String.Compare(record.RowKey, RowKeyUtils.EncodeVersion(minVersion), StringComparison.Ordinal) >= 0) // RowKeys are string, so we need to encode the int as a string to compare
+                String.Compare(record.RowKey, RowKeyUtilities.EncodeVersion(minVersion), StringComparison.Ordinal) >= 0) // RowKeys are string, so we need to encode the int as a string to compare
             .Select(eventRecord =>
             {
                 var type = _eventTypeResolver.TryDecode(eventRecord.Type);
