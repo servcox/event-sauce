@@ -11,6 +11,6 @@ public static class ModelIdentificationUtilities
         var hash = SHA256.HashData(type.GUID.ToByteArray())
             .Take(8)
             .ToArray();
-        return $"{type.FullName}.{version}.{Rfc7515CEncoder.Encode(hash)}";
+        return $"{type.FullName}@{version}.{Rfc7515CEncoder.Encode(hash)}";
     }
 }
