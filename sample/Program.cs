@@ -13,6 +13,7 @@ var store = new EventStore(connectionString, cfg => cfg
         .On<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
         .OnOther((projection, evt) => { })
         .OnAny((projection, evt) => { })
+        .Index(nameof(Cake.Color), projection => projection.Color)
     )
 );
 var streamId = Guid.NewGuid().ToString();
@@ -32,7 +33,9 @@ foreach (var evt in store.ReadStream(streamId, 0)) // <== Can pick a greater ver
     Console.WriteLine(evt.Version + ": " + evt.Body);
 }
 
-var projection = store.ReadProjection<Cake>(streamId);
+var projection = await store.ReadProjection<Cake>(streamId, CancellationToken.None);
+
+var projections = await store.ListProjections<Cake>(nameof(Cake.Color), "BLUE");
 
 
 public record Cake

@@ -231,11 +231,11 @@ public class EventStoreTests
     }
 
     [Fact]
-    public void CanReadProjection()
+    public async Task CanReadProjection()
     {
         using var wrapper = new Wrapper();
 
-        var prj = wrapper.Sut.ReadProjection<Projection>(StreamId1);
+        var prj = await wrapper.Sut.ReadProjection<Projection>(StreamId1, CancellationToken.None);
         prj.A.Should().Be(1);
         prj.B.Should().Be(1);
         prj.Any.Should().Be(3);

@@ -152,18 +152,45 @@ public sealed class EventStore
             });
     }
 
-    public TProjection ReadProjection<TProjection>(String streamId) where TProjection : new()
+    public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken) where TProjection : new()
     {
         var type = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
 
-        // TODO: Load cached projection (builder.Key)
-        var events = ReadStream(streamId).ToList();
-        var projection = new TProjection();
-        ApplyEvents(projection, events, builder); // TODO: Apply any new events
+        var record = await TryGetProjectionRecord(builder.Id, streamId, cancellationToken).ConfigureAwait(false) ?? new();
+        var isNewProjection = String.IsNullOrEmpty(record.Body);
+        var projection = isNewProjection ? new() : JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
+        var nextVersion = isNewProjection ? 0 : record.Version + 1;
+        var events = ReadStream(streamId, nextVersion).ToList();
 
-        // TODO: Persist projection, if newer than what we have
+        if (events.Count != 0)
+        {
+            ApplyEvents(projection, events, builder);
+            record.Body = JsonSerializer.Serialize(projection, _configuration.SerializationOptions);
+            record.Version = events.Last().Version;
+
+            if (isNewProjection)
+            {
+                await _streamTable.AddEntityAsync(record, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await UpdateProjectionRecord(record, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+
+        // TODO: Test persistance
+
         return projection;
+    }
+
+    public Task<TProjection> ListProjections<TProjection>(String key, String value) where TProjection : new() =>
+        ListProjections<TProjection>(new Dictionary<String, String> { [key] = value });
+
+    public Task<TProjection> ListProjections<TProjection>(IDictionary<String, String> query) where TProjection : new()
+    {
+        throw new NotImplementedException();
     }
 
     private void ApplyEvents<TProjection>(TProjection projection, List<Event> events, IProjectionBuilder builder) where TProjection : new()
@@ -196,12 +223,15 @@ public sealed class EventStore
         }
     }
 
-    private async Task<ProjectionRecord> GetProjectionRecord(String projectionId, String streamId, CancellationToken cancellationToken)
+    private async Task<ProjectionRecord?> TryGetProjectionRecord(String projectionId, String streamId, CancellationToken cancellationToken)
     {
         var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<ProjectionRecord>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
-        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
+        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) return null;
         return streamRecordWrapper.Value;
     }
+
+    private Task<Response> UpdateProjectionRecord(ProjectionRecord record, CancellationToken cancellationToken) =>
+        _streamTable.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
 
     private async Task<StreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken)
     {
@@ -210,6 +240,6 @@ public sealed class EventStore
         return streamRecordWrapper.Value;
     }
 
-    private Task<Response> UpdateStreamRecord(StreamRecord streamRecord, CancellationToken cancellationToken) =>
-        _streamTable.UpdateEntityAsync(streamRecord, streamRecord.ETag, TableUpdateMode.Replace, cancellationToken);
+    private Task<Response> UpdateStreamRecord(StreamRecord record, CancellationToken cancellationToken) =>
+        _streamTable.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
 }
