@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Azure;
 using Azure.Data.Tables;
-using ServcoX.EventSauce.Builders;
+using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
 using ServcoX.EventSauce.Utilities;
@@ -16,9 +16,9 @@ public sealed class EventStore
     private readonly TableClient _eventTable;
     private readonly TableClient _projectionTable;
     private readonly EventTypeResolver _eventTypeResolver = new();
-    private readonly EventStoreConfiguration _configuration;
+    private readonly BaseConfiguration _configuration;
 
-    public EventStore(String connectionString, Action<EventStoreConfiguration>? configure = null)
+    public EventStore(String connectionString, Action<BaseConfiguration>? configure = null)
     {
         if (String.IsNullOrEmpty(connectionString)) throw new ArgumentNullOrDefaultException(nameof(connectionString));
         _configuration = new();

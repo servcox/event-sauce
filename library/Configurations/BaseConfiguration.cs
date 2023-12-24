@@ -6,9 +6,9 @@ using System.Text.Json.Serialization;
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 
-namespace ServcoX.EventSauce.Builders;
+namespace ServcoX.EventSauce.Configurations;
 
-public sealed class EventStoreConfiguration
+public sealed class BaseConfiguration
 {
     public String StreamTableName { get; set; } = "stream";
     public String EventTableName { get; set; } = "event";
@@ -23,44 +23,44 @@ public sealed class EventStoreConfiguration
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
     };
 
-    public EventStoreConfiguration UseStreamTable(String name)
+    public BaseConfiguration UseStreamTable(String name)
     {
         StreamTableName = name;
         return this;
     }
 
-    public EventStoreConfiguration UseEventTable(String name)
+    public BaseConfiguration UseEventTable(String name)
     {
         EventTableName = name;
         return this;
     }
 
-    public EventStoreConfiguration UseProjectionTable(String name)
+    public BaseConfiguration UseProjectionTable(String name)
     {
         ProjectionTableName = name;
         return this;
     }
 
-    public EventStoreConfiguration CheckForUnprojectedEventsEvery(TimeSpan every)
+    public BaseConfiguration CheckForUnprojectedEventsEvery(TimeSpan every)
     {
         CheckUnprojectedEventsInterval = every;
         return this;
     }
 
-    public EventStoreConfiguration CreateTablesIfMissing()
+    public BaseConfiguration CreateTablesIfMissing()
     {
         ShouldCreateTableIfMissing = true;
         return this;
     }
 
-    public EventStoreConfiguration DefineProjection<TProjection>(String streamType, UInt64 version, Action<ProjectionBuilder<TProjection>> build) where TProjection : new()
+    public BaseConfiguration DefineProjection<TProjection>(String streamType, UInt64 version, Action<ProjectionConfiguration<TProjection>> build) where TProjection : new()
     {
         ArgumentNullException.ThrowIfNull(build);
         // TODO: Where to store streamType?
         // TODO: Where to store version?
         
         var type = typeof(TProjection);
-        var builder = new ProjectionBuilder<TProjection>();
+        var builder = new ProjectionConfiguration<TProjection>();
         build(builder);
         if (!Projections.TryAdd(type, builder)) throw new AlreadyExistsException();
         return this;

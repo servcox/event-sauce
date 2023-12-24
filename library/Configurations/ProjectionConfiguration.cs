@@ -4,16 +4,16 @@
 using System.Collections.ObjectModel;
 using ServcoX.EventSauce.Models;
 
-namespace ServcoX.EventSauce.Builders;
+namespace ServcoX.EventSauce.Configurations;
 
-public sealed class ProjectionBuilder<TProjection> : IProjectionBuilder where TProjection : new()
+public sealed class ProjectionConfiguration<TProjection> : IProjectionBuilder where TProjection : new()
 {
     public Type Type { get; } = typeof(TProjection);
     public Dictionary<Type, Collection<Object>> EventHandlers { get; } = new();
     public Collection<Object> FallbackHandlers { get; } = [];
     public Collection<Object> PromiscuousHandlers { get; } = [];
 
-    public ProjectionBuilder<TProjection> On<TEventBody>(Action<TProjection, TEventBody, Event> action) where TEventBody : IEventBody
+    public ProjectionConfiguration<TProjection> On<TEventBody>(Action<TProjection, TEventBody, Event> action) where TEventBody : IEventBody
     {
         var eventBodyType = typeof(TEventBody);
         if (!EventHandlers.TryGetValue(eventBodyType, out var actions)) EventHandlers[eventBodyType] = actions = new();
@@ -21,13 +21,13 @@ public sealed class ProjectionBuilder<TProjection> : IProjectionBuilder where TP
         return this;
     }
 
-    public ProjectionBuilder<TProjection> OnOther(Action<TProjection, Event> action)
+    public ProjectionConfiguration<TProjection> OnOther(Action<TProjection, Event> action)
     {
         FallbackHandlers.Add(action);
         return this;
     }
 
-    public ProjectionBuilder<TProjection> OnAny(Action<TProjection, Event> action)
+    public ProjectionConfiguration<TProjection> OnAny(Action<TProjection, Event> action)
     {
         PromiscuousHandlers.Add(action);
         return this;
