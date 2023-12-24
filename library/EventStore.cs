@@ -149,12 +149,12 @@ public sealed class EventStore
         var type = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
         
-        // Load cached projection (builder.Key)
+        // TODO: Load cached projection (builder.Key)
         var events = ReadStream(streamId).ToList();
         var projection = new TProjection();
-        ApplyEvents(projection, events, builder); // Apply any new events
+        ApplyEvents(projection, events, builder); // TODO: Apply any new events
         
-        // Persist projection, if newer than what we have
+        // TODO: Persist projection, if newer than what we have
         return projection;
     }
 
