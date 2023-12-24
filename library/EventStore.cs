@@ -60,7 +60,7 @@ public sealed class EventStore
         streamType = streamType.ToUpperInvariant();
         try
         {
-            await _streamTable.AddEntityAsync(new StreamRecord()
+            await _streamTable.AddEntityAsync(new StreamRecord
             {
                 StreamId = streamId,
                 Type = streamType,
@@ -87,9 +87,9 @@ public sealed class EventStore
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
-        var streamRecord = await _streamTable.GetEntityAsync<StreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false) ?? throw new NeverNullException();
-        streamRecord.Value.IsArchived = true;
-        await _streamTable.UpdateEntityAsync(streamRecord.Value, streamRecord.Value.ETag, TableUpdateMode.Replace, cancellationToken).ConfigureAwait(false);
+        var streamRecord = await GetStreamRecord(streamId, cancellationToken).ConfigureAwait(false);
+        streamRecord.IsArchived = true;
+        await UpdateStreamRecord(streamRecord, cancellationToken).ConfigureAwait(false);
     }
 
     public Task WriteStream(String streamId, IEventBody payload, String createdBy, CancellationToken cancellationToken) =>
@@ -133,7 +133,7 @@ public sealed class EventStore
             throw new OptimisticWriteInterruptedException("Write to this stream interrupted by a preceding write. Retry the operation.");
         }
 
-        await _streamTable.UpdateEntityAsync(streamRecord, streamRecord.ETag, TableUpdateMode.Replace, cancellationToken).ConfigureAwait(false);
+        await UpdateStreamRecord(streamRecord, cancellationToken).ConfigureAwait(false);
     }
 
     public IEnumerable<Event> ReadStream(String streamId, UInt64 minVersion = 0)
@@ -196,10 +196,20 @@ public sealed class EventStore
         }
     }
 
+    private async Task<ProjectionRecord> GetProjectionRecord(String projectionId, String streamId, CancellationToken cancellationToken)
+    {
+        var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<ProjectionRecord>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
+        return streamRecordWrapper.Value;
+    }
+
     private async Task<StreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken)
     {
         var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<StreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
         return streamRecordWrapper.Value;
     }
+
+    private Task<Response> UpdateStreamRecord(StreamRecord streamRecord, CancellationToken cancellationToken) =>
+        _streamTable.UpdateEntityAsync(streamRecord, streamRecord.ETag, TableUpdateMode.Replace, cancellationToken);
 }

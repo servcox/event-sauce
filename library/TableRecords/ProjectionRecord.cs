@@ -8,7 +8,7 @@ namespace ServcoX.EventSauce.TableRecords;
 
 public sealed class ProjectionRecord : ITableEntity
 {
-    public String TypeId
+    public String ProjectionId
     {
         get => PartitionKey;
         init => PartitionKey = value;
@@ -37,5 +37,5 @@ public sealed class ProjectionRecord : ITableEntity
     public DateTimeOffset? Timestamp { get; set; }
     public ETag ETag { get; set; }
 
-    public override String ToString() => $"{TypeId}/{StreamId}@{Version}";
+    public override String ToString() => $"{ProjectionId}/{StreamId}@{Version}";
 }
