@@ -1,4 +1,6 @@
-namespace ServcoX.EventSauce.EventStores;
+using ServcoX.EventSauce.TableRecords;
+
+namespace ServcoX.EventSauce.Models;
 
 public readonly record struct EventStream(String Id, String Type, UInt64 LatestVersion, DateTime LatestUpdateAt, Boolean IsArchived)
 {

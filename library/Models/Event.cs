@@ -1,6 +1,7 @@
 using System.Globalization;
+using ServcoX.EventSauce.TableRecords;
 
-namespace ServcoX.EventSauce.EventStores;
+namespace ServcoX.EventSauce.Models;
 
 public readonly record struct Event(String StreamId, UInt64 Version, String Type, IEventBody? Body, String CreatedBy, DateTime CreatedAt)
 {

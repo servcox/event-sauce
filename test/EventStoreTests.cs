@@ -2,7 +2,8 @@ using System.Text.Json;
 using Azure.Data.Tables;
 using FluentAssertions;
 using Microsoft.VisualBasic.CompilerServices;
-using ServcoX.EventSauce.EventStores;
+using ServcoX.EventSauce.Models;
+using ServcoX.EventSauce.TableRecords;
 
 // ReSharper disable NotAccessedPositionalProperty.Global
 

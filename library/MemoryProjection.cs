@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using System.Reflection;
-using ServcoX.EventSauce.EventStores;
+using ServcoX.EventSauce.Models;
 
-namespace ServcoX.EventSauce.Projections;
+namespace ServcoX.EventSauce;
 
 [Obsolete("Use EventStore.CreateProjection instead")]
 public sealed class MemoryProjector<T> : IDisposable

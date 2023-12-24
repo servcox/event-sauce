@@ -2,8 +2,9 @@
 // ReSharper disable ClassNeverInstantiated.Global
 
 using System.Collections.ObjectModel;
+using ServcoX.EventSauce.Models;
 
-namespace ServcoX.EventSauce.EventStores;
+namespace ServcoX.EventSauce.Builders;
 
 public sealed class ProjectionBuilder<TProjection> : IProjectionBuilder where TProjection : new()
 {

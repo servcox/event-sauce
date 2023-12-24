@@ -1,7 +1,8 @@
 using Azure;
 using Azure.Data.Tables;
+using ServcoX.EventSauce.Utilities;
 
-namespace ServcoX.EventSauce.EventStores;
+namespace ServcoX.EventSauce.TableRecords;
 
 public sealed class EventRecord : ITableEntity
 {

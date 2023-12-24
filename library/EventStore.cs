@@ -1,8 +1,12 @@
 using System.Text.Json;
 using Azure;
 using Azure.Data.Tables;
+using ServcoX.EventSauce.Builders;
+using ServcoX.EventSauce.Models;
+using ServcoX.EventSauce.TableRecords;
+using ServcoX.EventSauce.Utilities;
 
-namespace ServcoX.EventSauce.EventStores;
+namespace ServcoX.EventSauce;
 
 public sealed class EventStore
 {

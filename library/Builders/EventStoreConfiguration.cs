@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -7,7 +6,7 @@ using System.Text.Json.Serialization;
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 
-namespace ServcoX.EventSauce.EventStores;
+namespace ServcoX.EventSauce.Builders;
 
 public sealed class EventStoreConfiguration
 {
