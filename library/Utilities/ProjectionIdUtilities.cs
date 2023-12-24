@@ -3,9 +3,9 @@ using ServcoX.Rfc7515C;
 
 namespace ServcoX.EventSauce.Utilities;
 
-public static class ModelIdentificationUtilities
+public static class ProjectionIdUtilities
 {
-    public static String ComputeKey(Type type, UInt32 version)
+    public static String Compute(Type type, UInt32 version)
     {
         ArgumentNullException.ThrowIfNull(type);
         var hash = SHA256.HashData(type.GUID.ToByteArray())
