@@ -30,16 +30,16 @@ public class EventStoreTests
         },
         new()
         {
-            StreamId = StreamId2, 
+            StreamId = StreamId2,
             Type = StreamType1.ToUpperInvariant(),
-            LatestVersion = 0, 
+            LatestVersion = 0,
             IsArchived = false,
         },
         new()
         {
             StreamId = StreamId3,
-            Type = StreamType2.ToUpperInvariant(), 
-            LatestVersion = 0, 
+            Type = StreamType2.ToUpperInvariant(),
+            LatestVersion = 0,
             IsArchived = false,
         },
     };
@@ -245,9 +245,21 @@ public class EventStoreTests
         prj.Other.Should().Be(1);
 
         var projectionId = ProjectionIdUtilities.Compute(typeof(Projection), ProjectionVersion);
-        
+
         var record = wrapper.ProjectionTable.GetEntity<ProjectionRecord>(projectionId, StreamId1).Value;
         record.Version.Should().Be(3);
+        record.Body.Should().Be(JsonSerializer.Serialize(prj));
+
+        await wrapper.Sut.WriteStream(StreamId1, new TestAEvent("a"), UserId, CancellationToken.None);
+
+        prj = await wrapper.Sut.ReadProjection<Projection>(StreamId1, CancellationToken.None);
+        prj.A.Should().Be(2);
+        prj.B.Should().Be(1);
+        prj.Any.Should().Be(4);
+        prj.Other.Should().Be(1);
+
+        record = wrapper.ProjectionTable.GetEntity<ProjectionRecord>(projectionId, StreamId1).Value;
+        record.Version.Should().Be(4);
         record.Body.Should().Be(JsonSerializer.Serialize(prj));
     }
 

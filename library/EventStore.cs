@@ -183,9 +183,6 @@ public sealed class EventStore
             }
         }
 
-
-        // TODO: Test persistance
-
         return projection;
     }
 
