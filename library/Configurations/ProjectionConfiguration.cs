@@ -1,9 +1,9 @@
-// ReSharper disable UnusedMethodReturnValue.Global
-// ReSharper disable ClassNeverInstantiated.Global
-
 using System.Collections.ObjectModel;
 using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.Utilities;
+
+// ReSharper disable UnusedMethodReturnValue.Global
+// ReSharper disable ClassNeverInstantiated.Global
 
 namespace ServcoX.EventSauce.Configurations;
 
@@ -36,14 +36,14 @@ public sealed class ProjectionConfiguration<TProjection>(UInt32 version) : IProj
         return this;
     }
 
-    // TODO
-    // public Dictionary<String, Object> Indexes { get; } = new();
-    //
-    // public ProjectionConfiguration<TProjection> Index(String key, Func<TProjection, String> value)
-    // {
-    //     if (!Indexes.TryAdd(key, value)) throw new AlreadyExistsException();
-    //     return this;
-    // }
+    public Dictionary<String, Object> Indexes { get; } = new();
+
+    public ProjectionConfiguration<TProjection> Index(String key, Func<TProjection, String> value)
+    {
+        if (Indexes.ContainsKey(key)) throw new AlreadyExistsException();
+        Indexes.Add(key, value);
+        return this;
+    }
 }
 
 public interface IProjectionBuilder
@@ -52,5 +52,5 @@ public interface IProjectionBuilder
     Dictionary<Type, Collection<Object>> EventHandlers { get; }
     Collection<Object> FallbackHandlers { get; }
     Collection<Object> PromiscuousHandlers { get; }
-    // Dictionary<String, Object> Indexes { get; }
+    Dictionary<String, Object> Indexes { get; }
 }

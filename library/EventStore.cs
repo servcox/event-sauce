@@ -198,6 +198,11 @@ public sealed class EventStore
     // {
     //     throw new NotImplementedException();
     // }
+    
+    // TODO:
+    //  * Write index
+    //  * Query on index
+    //  * Background refresh index
 
     private void ApplyEvents<TProjection>(TProjection projection, List<Event> events, IProjectionBuilder builder) where TProjection : new()
     {

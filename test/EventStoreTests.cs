@@ -268,6 +268,7 @@ public class EventStoreTests
         public TableClient StreamTable { get; }
         public TableClient EventTable { get; }
         public TableClient ProjectionTable { get; }
+        public TableClient IndexTable { get; }
         public EventStore Sut { get; }
 
         public Wrapper()
@@ -276,6 +277,7 @@ public class EventStoreTests
             var streamTableName = $"stream{postfix}";
             var eventTableName = $"event{postfix}";
             var projectionTableName = $"projection{postfix}";
+            var indexTableName = $"index{postfix}";
 
             StreamTable = new(DevelopmentConnectionString, streamTableName);
             StreamTable.Create();
@@ -287,16 +289,21 @@ public class EventStoreTests
 
             ProjectionTable = new(DevelopmentConnectionString, projectionTableName);
             ProjectionTable.Create();
+            
+            IndexTable = new(DevelopmentConnectionString, indexTableName);
+            ProjectionTable.Create();
 
             Sut = new(DevelopmentConnectionString, cfg => cfg
                 .UseStreamTable(streamTableName)
                 .UseEventTable(eventTableName)
                 .UseProjectionTable(projectionTableName)
+                .UseIndexTable(indexTableName)
                 .DefineProjection<Projection>(ProjectionVersion, builder => builder
                     .On<TestAEvent>((prj, body, evt) => prj.A++)
                     .On<TestBEvent>((prj, body, evt) => prj.B++)
                     .OnOther((prj, evt) => prj.Other++)
                     .OnAny((prj, evt) => prj.Any++)
+                    .Index("A", prj => prj.A.ToString())
                 )
             );
         }
