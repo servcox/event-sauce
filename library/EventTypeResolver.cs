@@ -14,13 +14,17 @@ public sealed class EventTypeResolver
     
     public String Encode(Type type)
     {
-        ArgumentNullException.ThrowIfNull(type);
+        if (type is null) throw new ArgumentNullException(nameof(type));
         if (type.FullName is null) throw new InvalidOperationException("Type name cannot be null");
         return type.FullName.ToUpperInvariant();
     }
 
-    public Type? TryDecode(String typeName) => _knownEventBodies.GetValueOrDefault(typeName);
-    
+    public Type? TryDecode(String typeName)
+    {
+        _knownEventBodies.TryGetValue(typeName, out var value);
+        return value;
+    }
+
     private Dictionary<String, Type> GenerateEventBodyIndex()
     {
         var output = new Dictionary<String, Type>();
@@ -29,8 +33,9 @@ public sealed class EventTypeResolver
 
         Queue(AppDomain.CurrentDomain.GetAssemblies());
 
-        while (pendingAssemblies.TryPop(out var assembly))
+        while (pendingAssemblies.Any())
         {
+            var assembly = pendingAssemblies.Pop() ?? throw new NeverNullException();
             QueueByName(assembly.GetReferencedAssemblies());
 
             var types = assembly.GetTypes().Where(type => typeof(IEventBody).IsAssignableFrom(type) && !type.IsInterface);
@@ -56,8 +61,7 @@ public sealed class EventTypeResolver
         {
             foreach (var assembly in assemblies)
             {
-                var name = assembly.FullName;
-                if (name is null) continue;
+                var name = assembly.FullName ?? throw new NeverNullException();
                 if (name.StartsWith("System.", StringComparison.InvariantCultureIgnoreCase)) continue;
                 if (name.StartsWith("Microsoft.", StringComparison.InvariantCultureIgnoreCase)) continue;
                 if (touchedAssemblies.Contains(name)) continue;

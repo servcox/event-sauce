@@ -13,14 +13,14 @@ public sealed class ProjectionRecord : ITableEntity
     public String ProjectionId
     {
         get => PartitionKey;
-        init => PartitionKey = value;
+        set => PartitionKey = value;
     }
 
     [IgnoreDataMember]
     public String StreamId
     {
         get => RowKey;
-        init => RowKey = value;
+        set => RowKey = value;
     }
 
     public String Body { get; set; } = String.Empty;

@@ -15,14 +15,14 @@ public sealed class EventRecord : ITableEntity
     public String StreamId
     {
         get => PartitionKey;
-        init => PartitionKey = value;
+        set => PartitionKey = value;
     }
 
     [IgnoreDataMember]
     public UInt64 Version
     {
         get => UInt64.Parse(RowKey, CultureInfo.InvariantCulture);
-        init => RowKey = RowKeyUtilities.EncodeVersion(value);
+        set => RowKey = RowKeyUtilities.EncodeVersion(value);
     }
 
     public String Type { get; set; } = String.Empty;

@@ -7,8 +7,10 @@ public static class ProjectionIdUtilities
 {
     public static String Compute(Type type, UInt32 version)
     {
-        ArgumentNullException.ThrowIfNull(type);
-        var hash = SHA256.HashData(type.GUID.ToByteArray())
+        if (type is null) throw new ArgumentNullException(nameof(type));
+
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(type.GUID.ToByteArray())
             .Take(8)
             .ToArray();
         return $"{type.FullName}@{version}.{Rfc7515CEncoder.Encode(hash)}";

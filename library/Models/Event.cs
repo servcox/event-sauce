@@ -2,11 +2,11 @@ using ServcoX.EventSauce.TableRecords;
 
 namespace ServcoX.EventSauce.Models;
 
-public readonly record struct Event(String StreamId, UInt64 Version, String Type, IEventBody? Body, String CreatedBy, DateTime CreatedAt)
+public record struct Event(String StreamId, UInt64 Version, String Type, IEventBody? Body, String CreatedBy, DateTime CreatedAt)
 {
     public static Event CreateFrom(EventRecord record, IEventBody? body)
     {
-        ArgumentNullException.ThrowIfNull(record);
+        if (record is null) throw new ArgumentNullException(nameof(record));
         
         return new()
         {

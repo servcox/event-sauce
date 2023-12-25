@@ -2,19 +2,20 @@ using ServcoX.EventSauce.TableRecords;
 
 namespace ServcoX.EventSauce.Models;
 
-public readonly record struct Stream(String Id, String Type, UInt64 LatestVersion, DateTime LatestUpdateAt, Boolean IsArchived)
+public record struct Stream(String Id, String Type, UInt64 LatestVersion, DateTime LatestUpdateAt, Boolean IsArchived)
 {
-    public static Stream CreateFrom(StreamRecord streamRecord)
+    public static Stream CreateFrom(StreamRecord record)
     {
-        ArgumentNullException.ThrowIfNull(streamRecord);
+        
+        if (record is null) throw new ArgumentNullException(nameof(record));
 
         return new()
         {
-            Id = streamRecord.StreamId,
-            Type = streamRecord.Type,
-            LatestVersion = streamRecord.LatestVersion,
-            LatestUpdateAt = streamRecord.Timestamp?.UtcDateTime ?? new DateTime(),
-            IsArchived = streamRecord.IsArchived,
+            Id = record.StreamId,
+            Type = record.Type,
+            LatestVersion = record.LatestVersion,
+            LatestUpdateAt = record.Timestamp?.UtcDateTime ?? new DateTime(),
+            IsArchived = record.IsArchived,
         };
     }
 }

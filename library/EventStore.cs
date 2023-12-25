@@ -101,7 +101,8 @@ public sealed class EventStore
     public async Task WriteStream(String streamId, IEventBody[] payloads, String createdBy, CancellationToken cancellationToken)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
-        ArgumentNullException.ThrowIfNull(payloads);
+        if (payloads is null) throw new ArgumentNullException(nameof(payloads));
+        
         if (payloads.Length == 0) return;
         if (payloads.Length >= MaxEventsInWrite) throw new InvalidOperationException("At most 100 events can be queued in a writer before a commit is required");
 

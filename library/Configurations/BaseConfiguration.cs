@@ -20,7 +20,8 @@ public sealed class BaseConfiguration
 
     public JsonSerializerOptions SerializationOptions { get; set; } = new()
     {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
+        IgnoreNullValues = true,
+        // If upgrading SDK: DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
     };
 
     public BaseConfiguration UseStreamTable(String name)
@@ -55,12 +56,13 @@ public sealed class BaseConfiguration
 
     public BaseConfiguration DefineProjection<TProjection>(UInt32 version, Action<ProjectionConfiguration<TProjection>> build) where TProjection : new()
     {
-        ArgumentNullException.ThrowIfNull(build);
+        if (build is null) throw new ArgumentNullException(nameof(build));
         
         var type = typeof(TProjection);
         var builder = new ProjectionConfiguration<TProjection>(version);
         build(builder);
-        if (!Projections.TryAdd(type, builder)) throw new AlreadyExistsException();
+        if (Projections.ContainsKey(type)) throw new AlreadyExistsException();
+        Projections.Add(type, builder);
         return this;
     }
 }

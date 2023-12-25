@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AssemblyName>ServcoX.EventSauce</AssemblyName>
@@ -23,6 +23,8 @@
         <NoWarn>CA1040;CA1711;CA1716</NoWarn>
         <AnalysisMode>All</AnalysisMode>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <LangVersion>12</LangVersion>
+        <Version>1.1.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
@@ -34,7 +36,7 @@
 
     <ItemGroup>
         <PackageReference Include="Azure.Data.Tables" Version="12.8.2"/>
-        <PackageReference Include="ServcoX.Rfc7515C" Version="1.0.0" />
+        <PackageReference Include="ServcoX.Rfc7515C" Version="1.1.0" />
     </ItemGroup>
 
 </Project>

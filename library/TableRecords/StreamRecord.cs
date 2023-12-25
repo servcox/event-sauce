@@ -13,7 +13,7 @@ public sealed class StreamRecord : ITableEntity
     public String StreamId
     {
         get => PartitionKey;
-        init
+        set
         {
             PartitionKey = value;
             RowKey = value;
