@@ -3,6 +3,7 @@ using Azure.Data.Tables;
 using FluentAssertions;
 using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
+using ServcoX.EventSauce.Utilities;
 
 // ReSharper disable NotAccessedPositionalProperty.Global
 
@@ -78,6 +79,8 @@ public class EventStoreTests
             CreatedBy = UserId,
         },
     };
+
+    private const UInt32 ProjectionVersion = 1;
 
     [Fact]
     public void CanListStreams()
@@ -240,6 +243,12 @@ public class EventStoreTests
         prj.B.Should().Be(1);
         prj.Any.Should().Be(3);
         prj.Other.Should().Be(1);
+
+        var projectionId = ProjectionIdUtilities.Compute(typeof(Projection), ProjectionVersion);
+        
+        var record = wrapper.ProjectionTable.GetEntity<ProjectionRecord>(projectionId, StreamId1).Value;
+        record.Version.Should().Be(3);
+        record.Body.Should().Be(JsonSerializer.Serialize(prj));
     }
 
     private class Wrapper : IDisposable
@@ -271,7 +280,7 @@ public class EventStoreTests
                 .UseStreamTable(streamTableName)
                 .UseEventTable(eventTableName)
                 .UseProjectionTable(projectionTableName)
-                .DefineProjection<Projection>(1, builder => builder
+                .DefineProjection<Projection>(ProjectionVersion, builder => builder
                     .On<TestAEvent>((prj, body, evt) => prj.A++)
                     .On<TestBEvent>((prj, body, evt) => prj.B++)
                     .OnOther((prj, evt) => prj.Other++)

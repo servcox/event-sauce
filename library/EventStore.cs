@@ -157,9 +157,13 @@ public sealed class EventStore
         var type = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
 
-        var record = await TryGetProjectionRecord(builder.Id, streamId, cancellationToken).ConfigureAwait(false) ?? new();
+        var record = await TryGetProjectionRecord(builder.Id, streamId, cancellationToken).ConfigureAwait(false) ?? new()
+        {
+            ProjectionId = builder.Id,
+            StreamId = streamId,
+        };
         var isNewProjection = String.IsNullOrEmpty(record.Body);
-        var projection = isNewProjection ? new() : JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
+        var projection = isNewProjection ? new(): JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
         var nextVersion = isNewProjection ? 0 : record.Version + 1;
         var events = ReadStream(streamId, nextVersion).ToList();
 
@@ -171,7 +175,7 @@ public sealed class EventStore
 
             if (isNewProjection)
             {
-                await _streamTable.AddEntityAsync(record, cancellationToken).ConfigureAwait(false);
+                await _projectionTable.AddEntityAsync(record, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -225,13 +229,13 @@ public sealed class EventStore
 
     private async Task<ProjectionRecord?> TryGetProjectionRecord(String projectionId, String streamId, CancellationToken cancellationToken)
     {
-        var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<ProjectionRecord>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var streamRecordWrapper = await _projectionTable.GetEntityIfExistsAsync<ProjectionRecord>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) return null;
         return streamRecordWrapper.Value;
     }
 
     private Task<Response> UpdateProjectionRecord(ProjectionRecord record, CancellationToken cancellationToken) =>
-        _streamTable.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
+        _projectionTable.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
 
     private async Task<StreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken)
     {

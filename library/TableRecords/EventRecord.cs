@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.Serialization;
 using Azure;
 using Azure.Data.Tables;
 using ServcoX.EventSauce.Utilities;
@@ -10,12 +11,14 @@ namespace ServcoX.EventSauce.TableRecords;
 
 public sealed class EventRecord : ITableEntity
 {
+    [IgnoreDataMember]
     public String StreamId
     {
         get => PartitionKey;
         init => PartitionKey = value;
     }
 
+    [IgnoreDataMember]
     public UInt64 Version
     {
         get => UInt64.Parse(RowKey, CultureInfo.InvariantCulture);

@@ -1,3 +1,4 @@
+using System.Runtime.Serialization;
 using Azure;
 using Azure.Data.Tables;
 
@@ -8,12 +9,14 @@ namespace ServcoX.EventSauce.TableRecords;
 
 public sealed class ProjectionRecord : ITableEntity
 {
+    [IgnoreDataMember]
     public String ProjectionId
     {
         get => PartitionKey;
         init => PartitionKey = value;
     }
 
+    [IgnoreDataMember]
     public String StreamId
     {
         get => RowKey;

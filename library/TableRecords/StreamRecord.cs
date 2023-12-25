@@ -1,3 +1,4 @@
+using System.Runtime.Serialization;
 using Azure;
 using Azure.Data.Tables;
 
@@ -8,6 +9,7 @@ namespace ServcoX.EventSauce.TableRecords;
 
 public sealed class StreamRecord : ITableEntity
 {
+    [IgnoreDataMember]
     public String StreamId
     {
         get => PartitionKey;
