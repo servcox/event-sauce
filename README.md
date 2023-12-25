@@ -3,7 +3,7 @@ Event Sauce is a super light-weight event sourcing library we use internally to 
 
 Because it backs onto Azure Table Storage, it's cost is tiny compared to other options. It's also simple to allow you to build on it in your own way.
 
-# TLDR;
+# Basic usage
 
 Define your events like this:
 ```c#
@@ -45,4 +45,35 @@ foreach (var evt in eventStore.ReadStream(streamId, 0)) // <== Can pick a greate
 }
 ```
 
-Simples!
+# Projections
+Once you have events being stored, you can then go a step futher and create projections based on them.
+
+Create a projection like this:
+```c#
+public record Cake
+{
+    public Int32 Slices { get; set; }
+    public String Color { get; set; }
+}
+```
+
+When you're creating your store, define how to build the projection:
+```c#
+var store = new EventStore(connectionString, cfg => cfg
+    .DefineProjection<Cake>(1, builder => builder
+        .On<CakeIced>((projection, body, evt) => projection.Color = body.Color)
+        .On<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
+        .OnOther((projection, evt) => { }) // Any event that hasn't been explicitly listed above
+        .OnAny((projection, evt) => { }) // Called on all events, in addition to any of the able
+    )
+);
+```
+
+And then simply read the projection like this:
+```c#
+var projection = await store.ReadProjection<Cake>(streamId, CancellationToken.None);
+```
+
+When you query a projection like this, it will play out all events that have occured since the last query using the
+projection definition, rendering the latest projection. The projection is then persisted in the database
+so that on the next query it needs only project events that have occured since.
