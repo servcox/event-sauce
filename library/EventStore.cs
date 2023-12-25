@@ -163,7 +163,7 @@ public sealed class EventStore
             StreamId = streamId,
         };
         var isNewProjection = String.IsNullOrEmpty(record.Body);
-        var projection = isNewProjection ? new(): JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
+        var projection = isNewProjection ? new() : JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
         var nextVersion = isNewProjection ? 0 : record.Version + 1;
         var events = ReadStream(streamId, nextVersion).ToList();
 
@@ -186,13 +186,17 @@ public sealed class EventStore
         return projection;
     }
 
-    public Task<TProjection> ListProjections<TProjection>(String key, String value) where TProjection : new() =>
-        ListProjections<TProjection>(new Dictionary<String, String> { [key] = value });
-
-    public Task<TProjection> ListProjections<TProjection>(IDictionary<String, String> query) where TProjection : new()
-    {
-        throw new NotImplementedException();
-    }
+    // TODO
+    // public Task<TProjection> ListProjections<TProjection>() where TProjection : new() =>
+    //     ListProjections<TProjection>(new Dictionary<String, String>());
+    //
+    // public Task<TProjection> ListProjections<TProjection>(String key, String value) where TProjection : new() =>
+    //     ListProjections<TProjection>(new Dictionary<String, String> { [key] = value });
+    //
+    // public Task<TProjection> ListProjections<TProjection>(IDictionary<String, String> query) where TProjection : new()
+    // {
+    //     throw new NotImplementedException();
+    // }
 
     private void ApplyEvents<TProjection>(TProjection projection, List<Event> events, IProjectionBuilder builder) where TProjection : new()
     {
