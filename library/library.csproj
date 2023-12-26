@@ -8,7 +8,7 @@
         <RootNamespace>ServcoX.EventSauce</RootNamespace>
         <PackageId>ServcoX.EventSauce</PackageId>
         <Title>ServcoX Event Sauce</Title>
-        <Description>Lightweight event sourcing library backed on Azure Table Storage</Description>
+        <Description>Lightweight event sourcing on Azure Table Storage.</Description>
         <PackageProjectUrl>https://github.com/servcox/event-sauce</PackageProjectUrl>
         <PackageLicenseUrl>https://github.com/servcox/event-sauce/blob/main/LICENSE</PackageLicenseUrl>
         <PackageIcon>servco.png</PackageIcon>
@@ -24,7 +24,7 @@
         <AnalysisMode>All</AnalysisMode>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <LangVersion>12</LangVersion>
-        <Version>1.1.0</Version>
+        <Version>1.2.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
