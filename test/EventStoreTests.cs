@@ -291,7 +291,7 @@ public class EventStoreTests
             ProjectionTable.Create();
             
             IndexTable = new(DevelopmentConnectionString, indexTableName);
-            ProjectionTable.Create();
+            IndexTable.Create();
 
             Sut = new(DevelopmentConnectionString, cfg => cfg
                 .UseStreamTable(streamTableName)

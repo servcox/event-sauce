@@ -1,10 +1,8 @@
 using System.Text.Json;
-using Azure;
-using Azure.Data.Tables;
 using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
-using ServcoX.EventSauce.Utilities;
+using ServcoX.EventSauce.Tables;
 using Stream = ServcoX.EventSauce.Models.Stream;
 
 namespace ServcoX.EventSauce;
@@ -12,9 +10,9 @@ namespace ServcoX.EventSauce;
 public sealed class EventStore
 {
     private const Int32 MaxEventsInWrite = 100; // Azure limit
-    private readonly TableClient _streamTable;
-    private readonly TableClient _eventTable;
-    private readonly TableClient _projectionTable;
+    private readonly StreamTable _streamTable;
+    private readonly EventTable _eventTable;
+    private readonly ProjectionTable _projectionTable;
     private readonly EventTypeResolver _eventTypeResolver = new();
     private readonly BaseConfiguration _configuration;
 
@@ -24,32 +22,26 @@ public sealed class EventStore
         _configuration = new();
         configure?.Invoke(_configuration);
 
-        _streamTable = new(connectionString, _configuration.StreamTableName);
-        _eventTable = new(connectionString, _configuration.EventTableName);
-        _projectionTable = new(connectionString, _configuration.ProjectionTableName);
+        _streamTable = new(new(connectionString, _configuration.StreamTableName));
+        _eventTable = new(new(connectionString, _configuration.EventTableName));
+        _projectionTable = new(new(connectionString, _configuration.ProjectionTableName));
 
         if (_configuration.ShouldCreateTableIfMissing)
         {
-            _streamTable.CreateIfNotExists();
-            _eventTable.CreateIfNotExists();
-            _projectionTable.CreateIfNotExists();
+            _streamTable.CreateUnderlyingIfNotExist();
+            _eventTable.CreateUnderlyingIfNotExist();
+            _projectionTable.CreateUnderlyingIfNotExist();
         }
     }
 
     /// <remarks>
-    /// This is an expensive operation, requiring a scan of all streams.
+    /// This operation is expensive, requiring a scan of all streams.
     /// </remarks>
     public IEnumerable<Stream> ListStreams(String streamType)
     {
         if (String.IsNullOrEmpty(streamType)) throw new ArgumentNullOrDefaultException(nameof(streamType));
 
-        streamType = streamType.ToUpperInvariant();
-        return _streamTable
-            .Query<StreamRecord>(stream =>
-                stream.Type.Equals(streamType, StringComparison.OrdinalIgnoreCase) &&
-                !stream.IsArchived
-            )
-            .Select(Stream.CreateFrom);
+        return _streamTable.List(streamType).Select(Stream.CreateFrom);
     }
 
     public async Task CreateStream(String streamId, String streamType, CancellationToken cancellationToken = default)
@@ -57,19 +49,11 @@ public sealed class EventStore
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
         if (String.IsNullOrEmpty(streamType)) throw new ArgumentNullOrDefaultException(nameof(streamType));
 
-        streamType = streamType.ToUpperInvariant();
-        try
+        await _streamTable.Create(new()
         {
-            await _streamTable.AddEntityAsync(new StreamRecord
-            {
-                StreamId = streamId,
-                Type = streamType,
-            }, cancellationToken).ConfigureAwait(false);
-        }
-        catch (RequestFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
-        {
-            throw new AlreadyExistsException();
-        }
+            StreamId = streamId,
+            Type = streamType.ToUpperInvariant(),
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task CreateStreamIfNotExist(String streamId, String streamType, CancellationToken cancellationToken = default)
@@ -87,54 +71,44 @@ public sealed class EventStore
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
-        var streamRecord = await GetStreamRecord(streamId, cancellationToken).ConfigureAwait(false);
-        streamRecord.IsArchived = true;
-        await UpdateStreamRecord(streamRecord, cancellationToken).ConfigureAwait(false);
+        var record = await _streamTable.Read(streamId, cancellationToken).ConfigureAwait(false);
+        record.IsArchived = true;
+        await _streamTable.Update(record, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task WriteStream(String streamId, IEventBody payload, String createdBy, CancellationToken cancellationToken = default) =>
-        WriteStream(streamId, new[] { payload }, createdBy, cancellationToken);
+    public Task WriteStream(String streamId, IEventBody body, String createdBy, CancellationToken cancellationToken = default) =>
+        WriteStream(streamId, new[] { body }, createdBy, cancellationToken);
 
-    public Task WriteStream(String streamId, IEnumerable<IEventBody> payloads, String createdBy, CancellationToken cancellationToken = default) =>
-        WriteStream(streamId, payloads.ToArray(), createdBy, cancellationToken);
+    public Task WriteStream(String streamId, IEnumerable<IEventBody> body, String createdBy, CancellationToken cancellationToken = default) =>
+        WriteStream(streamId, body.ToArray(), createdBy, cancellationToken);
 
-    public async Task WriteStream(String streamId, IEventBody[] payloads, String createdBy, CancellationToken cancellationToken = default)
+    public async Task WriteStream(String streamId, IEventBody[] bodies, String createdBy, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
-        if (payloads is null) throw new ArgumentNullException(nameof(payloads));
-        
-        if (payloads.Length == 0) return;
-        if (payloads.Length >= MaxEventsInWrite) throw new InvalidOperationException("At most 100 events can be queued in a writer before a commit is required");
+        if (bodies is null) throw new ArgumentNullException(nameof(bodies));
+        if (bodies.Length == 0) return; // Azure Table Storage throws an exception if you ask it to do nothing
+        if (bodies.Length >= MaxEventsInWrite) throw new InvalidOperationException("At most 100 events can be queued in a writer before a commit is required");
 
-        var streamRecord = await GetStreamRecord(streamId, cancellationToken).ConfigureAwait(false);
+        var streamRecord = await _streamTable.Read(streamId, cancellationToken).ConfigureAwait(false);
 
-        var batch = payloads.Select(payload =>
+        var eventRecords = bodies.Select(body =>
         {
-            var type = _eventTypeResolver.Encode(payload.GetType());
-            var body = JsonSerializer.Serialize((Object)payload, _configuration.SerializationOptions);
+            var type = _eventTypeResolver.Encode(body.GetType());
+            var bodySerialized = JsonSerializer.Serialize((Object)body, _configuration.SerializationOptions);
             var version = ++streamRecord.LatestVersion;
 
-            return new TableTransactionAction(TableTransactionActionType.Add, new EventRecord
+            return new EventRecord
             {
                 StreamId = streamId,
                 Version = version,
                 Type = type,
-                Body = body,
+                Body = bodySerialized,
                 CreatedBy = createdBy,
-            });
+            };
         });
 
-        try
-        {
-            // See https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/tables/Azure.Data.Tables/samples/Sample6TransactionalBatch.md
-            await _eventTable.SubmitTransactionAsync(batch, cancellationToken).ConfigureAwait(false);
-        }
-        catch (TableTransactionFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
-        {
-            throw new OptimisticWriteInterruptedException("Write to this stream interrupted by a preceding write. Retry the operation.");
-        }
-
-        await UpdateStreamRecord(streamRecord, cancellationToken).ConfigureAwait(false);
+        await _eventTable.CreateMany(eventRecords, cancellationToken).ConfigureAwait(false); // Must be first to avoid concurrency issues
+        await _streamTable.Update(streamRecord, cancellationToken).ConfigureAwait(false);
     }
 
     public IEnumerable<Event> ReadStream(String streamId, UInt64 minVersion = 0)
@@ -142,9 +116,7 @@ public sealed class EventStore
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
         return _eventTable
-            .Query<EventRecord>(record =>
-                record.PartitionKey == streamId &&
-                String.Compare(record.RowKey, RowKeyUtilities.EncodeVersion(minVersion), StringComparison.Ordinal) >= 0) // RowKeys are string, so we need to encode the int as a string to compare
+            .List(streamId, minVersion)
             .Select(eventRecord =>
             {
                 var type = _eventTypeResolver.TryDecode(eventRecord.Type);
@@ -158,7 +130,7 @@ public sealed class EventStore
         var type = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
 
-        var record = await TryGetProjectionRecord(builder.Id, streamId, cancellationToken).ConfigureAwait(false) ?? new()
+        var record = await _projectionTable.TryRead(builder.Id, streamId, cancellationToken).ConfigureAwait(false) ?? new()
         {
             ProjectionId = builder.Id,
             StreamId = streamId,
@@ -176,16 +148,17 @@ public sealed class EventStore
 
             if (isNewProjection)
             {
-                await _projectionTable.AddEntityAsync(record, cancellationToken).ConfigureAwait(false);
+                await _projectionTable.Create(record, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                await UpdateProjectionRecord(record, cancellationToken).ConfigureAwait(false);
+                await _projectionTable.Update(record, cancellationToken).ConfigureAwait(false);
             }
         }
 
         return projection;
     }
+
 
     // TODO
     // public Task<TProjection> ListProjections<TProjection>() where TProjection : new() =>
@@ -198,7 +171,7 @@ public sealed class EventStore
     // {
     //     throw new NotImplementedException();
     // }
-    
+
     // TODO:
     //  * Write index
     //  * Query on index
@@ -233,24 +206,4 @@ public sealed class EventStore
             foreach (var handler in builder.PromiscuousHandlers) ((Action<TProjection, Event>)handler)(projection, evt);
         }
     }
-
-    private async Task<ProjectionRecord?> TryGetProjectionRecord(String projectionId, String streamId, CancellationToken cancellationToken = default)
-    {
-        var streamRecordWrapper = await _projectionTable.GetEntityIfExistsAsync<ProjectionRecord>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
-        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) return null;
-        return streamRecordWrapper.Value;
-    }
-
-    private Task<Response> UpdateProjectionRecord(ProjectionRecord record, CancellationToken cancellationToken = default) =>
-        _projectionTable.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
-
-    private async Task<StreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken = default)
-    {
-        var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<StreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
-        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
-        return streamRecordWrapper.Value;
-    }
-
-    private Task<Response> UpdateStreamRecord(StreamRecord record, CancellationToken cancellationToken = default) =>
-        _streamTable.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
 }
