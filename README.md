@@ -16,39 +16,33 @@ public readonly record struct CutCake(Int32 Slices) : IEventBody;
 
 Connect to your event store like this:
 ```c#
-const String connectionString = "UseDevelopmentStorage=true;"; // Your Azure Storage connection string goes here
-var eventStore = new EventStore(connectionString);
+var eventStore = new EventStore("=== connection string goes here ===");
 ```
 
 Create a stream and write events like this:
 ```c#
-const String streamType = "CAKE";
+var streamType = "CAKE";
 var streamId = Guid.NewGuid().ToString();
 var userId = Guid.NewGuid().ToString();
-await eventStore.CreateStream(streamId, streamType, CancellationToken.None);
-await eventStore.WriteStream(streamId, new BakedCake(), userId, CancellationToken.None);
-await eventStore.WriteStream(streamId, new IcedCake("BLUE"), userId, CancellationToken.None);
-await eventStore.WriteStream(streamId, new CutCake(3), userId, CancellationToken.None);
+await eventStore.CreateStream(streamId, streamType);
+await eventStore.WriteStream(streamId, new BakedCake(), userId);
+await eventStore.WriteStream(streamId, new IcedCake("BLUE"), userId);
+await eventStore.WriteStream(streamId, new CutCake(3), userId);
 ```
 
 Get a list of streams you've already created like so:
 ```c#
-foreach (var stream in eventStore.ListStreams(streamType))
-{
-    Console.WriteLine(stream.Id);
-}
+foreach (var stream in eventStore.ListStreams(streamType)) Console.WriteLine(stream.Id);
 ```
 
 And finally, read events back like here:
 ```c#
-foreach (var evt in eventStore.ReadStream(streamId, 0)) // <== Can pick a greater version to only read new events
-{
-    Console.WriteLine(evt.Version + ": " + evt.Body);
-}
+var minVersion = 0; // <== Can pick a greater version to only read new events
+foreach (var evt in eventStore.ReadStream(streamId, 0)) Console.WriteLine(evt.Version + ": " + evt.Body);
 ```
 
 # Projections
-Once you have events being stored, you can then go a step futher and create projections based on them.
+Once you have events being stored, you can then go a step further and create projections based on them.
 
 Create a projection like this:
 ```c#
@@ -73,9 +67,9 @@ var store = new EventStore(connectionString, cfg => cfg
 
 And then simply read the projection like this:
 ```c#
-var projection = await store.ReadProjection<Cake>(streamId, CancellationToken.None);
+var projection = await store.ReadProjection<Cake>(streamId);
 ```
 
-When you query a projection like this, it will play out all events that have occured since the last query using the
+When you query a projection it will play out all events that have occured since the last query using the
 projection definition, rendering the latest projection. The projection is then persisted in the database
 so that on the next query it needs only project events that have occured since.

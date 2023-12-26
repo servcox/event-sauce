@@ -17,10 +17,10 @@ var store = new EventStore(connectionString, cfg => cfg
 );
 var streamId = Guid.NewGuid().ToString();
 var userId = Guid.NewGuid().ToString();
-await store.CreateStream(streamId, streamType, CancellationToken.None);
-await store.WriteStream(streamId, new BakedCake(), userId, CancellationToken.None);
-await store.WriteStream(streamId, new CakeIced("BLUE"), userId, CancellationToken.None);
-await store.WriteStream(streamId, new CakeCut(3), userId, CancellationToken.None);
+await store.CreateStream(streamId, streamType);
+await store.WriteStream(streamId, new BakedCake(), userId);
+await store.WriteStream(streamId, new CakeIced("BLUE"), userId);
+await store.WriteStream(streamId, new CakeCut(3), userId);
 
 foreach (var stream in store.ListStreams(streamType))
 {
@@ -32,7 +32,7 @@ foreach (var evt in store.ReadStream(streamId, 0)) // <== Can pick a greater ver
     Console.WriteLine(evt.Version + ": " + evt.Body);
 }
 
-var projection = await store.ReadProjection<Cake>(streamId, CancellationToken.None);
+var projection = await store.ReadProjection<Cake>(streamId);
 
 // var projections = await store.ListProjections<Cake>(nameof(Cake.Color), "BLUE");
 

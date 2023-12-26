@@ -52,7 +52,7 @@ public sealed class EventStore
             .Select(Stream.CreateFrom);
     }
 
-    public async Task CreateStream(String streamId, String streamType, CancellationToken cancellationToken)
+    public async Task CreateStream(String streamId, String streamType, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
         if (String.IsNullOrEmpty(streamType)) throw new ArgumentNullOrDefaultException(nameof(streamType));
@@ -72,7 +72,7 @@ public sealed class EventStore
         }
     }
 
-    public async Task CreateStreamIfNotExist(String streamId, String streamType, CancellationToken cancellationToken)
+    public async Task CreateStreamIfNotExist(String streamId, String streamType, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -83,7 +83,7 @@ public sealed class EventStore
         }
     }
 
-    public async Task ArchiveStream(String streamId, CancellationToken cancellationToken)
+    public async Task ArchiveStream(String streamId, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
@@ -92,13 +92,13 @@ public sealed class EventStore
         await UpdateStreamRecord(streamRecord, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task WriteStream(String streamId, IEventBody payload, String createdBy, CancellationToken cancellationToken) =>
+    public Task WriteStream(String streamId, IEventBody payload, String createdBy, CancellationToken cancellationToken = default) =>
         WriteStream(streamId, new[] { payload }, createdBy, cancellationToken);
 
-    public Task WriteStream(String streamId, IEnumerable<IEventBody> payloads, String createdBy, CancellationToken cancellationToken) =>
+    public Task WriteStream(String streamId, IEnumerable<IEventBody> payloads, String createdBy, CancellationToken cancellationToken = default) =>
         WriteStream(streamId, payloads.ToArray(), createdBy, cancellationToken);
 
-    public async Task WriteStream(String streamId, IEventBody[] payloads, String createdBy, CancellationToken cancellationToken)
+    public async Task WriteStream(String streamId, IEventBody[] payloads, String createdBy, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
         if (payloads is null) throw new ArgumentNullException(nameof(payloads));
@@ -153,7 +153,7 @@ public sealed class EventStore
             });
     }
 
-    public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken) where TProjection : new()
+    public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new()
     {
         var type = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
@@ -234,23 +234,23 @@ public sealed class EventStore
         }
     }
 
-    private async Task<ProjectionRecord?> TryGetProjectionRecord(String projectionId, String streamId, CancellationToken cancellationToken)
+    private async Task<ProjectionRecord?> TryGetProjectionRecord(String projectionId, String streamId, CancellationToken cancellationToken = default)
     {
         var streamRecordWrapper = await _projectionTable.GetEntityIfExistsAsync<ProjectionRecord>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) return null;
         return streamRecordWrapper.Value;
     }
 
-    private Task<Response> UpdateProjectionRecord(ProjectionRecord record, CancellationToken cancellationToken) =>
+    private Task<Response> UpdateProjectionRecord(ProjectionRecord record, CancellationToken cancellationToken = default) =>
         _projectionTable.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
 
-    private async Task<StreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken)
+    private async Task<StreamRecord> GetStreamRecord(String streamId, CancellationToken cancellationToken = default)
     {
         var streamRecordWrapper = await _streamTable.GetEntityIfExistsAsync<StreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
         return streamRecordWrapper.Value;
     }
 
-    private Task<Response> UpdateStreamRecord(StreamRecord record, CancellationToken cancellationToken) =>
+    private Task<Response> UpdateStreamRecord(StreamRecord record, CancellationToken cancellationToken = default) =>
         _streamTable.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
 }
