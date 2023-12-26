@@ -313,6 +313,7 @@ public class EventStoreTests
             StreamTable.Delete();
             EventTable.Delete();
             ProjectionTable.Delete();
+            IndexTable.Delete();
         }
     }
 }

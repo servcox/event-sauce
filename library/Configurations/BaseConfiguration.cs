@@ -42,7 +42,7 @@ public sealed class BaseConfiguration
     }
     public BaseConfiguration UseIndexTable(String name)
     {
-        ProjectionTableName = name;
+        IndexTableName = name;
         return this;
     }
 
