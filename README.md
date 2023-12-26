@@ -1,7 +1,9 @@
 # ServcoX.EventSauce
-Event Sauce is a super light-weight event sourcing library we use internally to store our events in Azure Table Storage. Its for when you want to use event sourcing but your needs aren't demanding or your budget is modest. We use it for internal projects with a few hundred user and it works a treat. It's not Kafka, and it's not trying to be. 
+Event Sauce is the light-weight event sourcing library Servco uses internally to store our events in Azure Table Storage. 
+Its for when you want to use event sourcing but your needs (or budget) aren't demanding enough to justify using Kafka. 
 
-Because it backs onto Azure Table Storage, it's cost is tiny compared to other options. It's also simple to allow you to build on it in your own way.
+It's performant a modest scale, and since it backs on Azure Table Storage it's cost is tiny compared to just about 
+everything else. It's also simple, and allows you to build out event sourcing in a way that suits you.
 
 # Basic usage
 
