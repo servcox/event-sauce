@@ -37,8 +37,11 @@ public sealed class EventStore
         }
     }
 
+    /// <summary>
+    /// Get a list of all streams of a given type.
+    /// </summary>
     /// <remarks>
-    /// This operation is expensive, requiring a scan of all streams.
+    /// This is an expensive operation as it requires scanning all streams.
     /// </remarks>
     public IEnumerable<Stream> ListStreams(String streamType)
     {
@@ -47,6 +50,10 @@ public sealed class EventStore
         return _streamTable.List(streamType).Select(Stream.CreateFrom);
     }
 
+    /// <summary>
+    /// Create a new stream of a given type.
+    /// </summary>
+    /// <exception cref="ArgumentNullOrDefaultException"></exception>
     public async Task CreateStream(String streamId, String streamType, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
@@ -59,6 +66,9 @@ public sealed class EventStore
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Create a new stream of a given type if it does not already exist.
+    /// </summary>
     public async Task CreateStreamIfNotExist(String streamId, String streamType, CancellationToken cancellationToken = default)
     {
         try
@@ -70,6 +80,13 @@ public sealed class EventStore
         }
     }
 
+    /// <summary>
+    /// Read the metadata of a given stream. 
+    /// </summary>
+    /// <remarks>
+    /// NOTE: This does not include events. Use `ReadEvents` to retrieve events in a stream.
+    /// </remarks>
+    /// <exception cref="ArgumentNullOrDefaultException"></exception>
     public async Task<Stream> ReadStream(String streamId, CancellationToken cancellationToken)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
@@ -78,6 +95,13 @@ public sealed class EventStore
         return Stream.CreateFrom(record);
     }
 
+    /// <summary>
+    /// Archive a stream, removing it from stream lists and projections.
+    /// </summary>
+    /// <remarks>
+    /// This is akin to deletion, however with event sourcing data is immutably stored and not removed.
+    /// </remarks>
+    /// <exception cref="ArgumentNullOrDefaultException"></exception>
     public async Task ArchiveStream(String streamId, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
@@ -86,13 +110,38 @@ public sealed class EventStore
         record.IsArchived = true;
         await _streamTable.Update(record, cancellationToken).ConfigureAwait(false);
     }
+    
+    /// <summary>
+    /// Unarchive a stream, returning it to lists and projections
+    /// </summary>
+    /// <exception cref="ArgumentNullOrDefaultException"></exception>
+    public async Task UnarchiveStream(String streamId, CancellationToken cancellationToken = default)
+    {
+        if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
+        var record = await _streamTable.Read(streamId, cancellationToken).ConfigureAwait(false);
+        record.IsArchived = true;
+        await _streamTable.Update(record, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Write a single event to a pre-existing event stream.
+    /// </summary>
+    /// <exception cref="ArgumentNullOrDefaultException"></exception>
     public Task WriteEvents(String streamId, IEventBody body, String createdBy, CancellationToken cancellationToken = default) =>
         WriteEvents(streamId, new[] { body }, createdBy, cancellationToken);
 
+    /// <summary>
+    /// Write multiple events to a pre-existing event stream.
+    /// </summary>
+    /// <exception cref="ArgumentNullOrDefaultException"></exception>
     public Task WriteEvents(String streamId, IEnumerable<IEventBody> body, String createdBy, CancellationToken cancellationToken = default) =>
         WriteEvents(streamId, body.ToArray(), createdBy, cancellationToken);
 
+    /// <summary>
+    /// Write multiple events to a pre-existing event stream.
+    /// </summary>
+    /// <exception cref="ArgumentNullOrDefaultException"></exception>
     public async Task WriteEvents(String streamId, IEventBody[] bodies, String createdBy, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
@@ -122,6 +171,10 @@ public sealed class EventStore
         await _streamTable.Update(streamRecord, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Read events from a given event stream, and from a given minimum version
+    /// </summary>
+    /// <exception cref="ArgumentNullOrDefaultException"></exception>
     public IEnumerable<Event> ReadEvents(String streamId, UInt64 minVersion = 0)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
@@ -136,6 +189,11 @@ public sealed class EventStore
             });
     }
 
+    /// <summary>
+    /// Read a projection, aggregating any new events into the projection if required
+    /// </summary>
+    /// <exception cref="NotFoundException"></exception>
+    /// <exception cref="StreamArchivedException"></exception>
     public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new() // TODO: Cleanup refactor
     {
         var projectionType = typeof(TProjection);
@@ -177,12 +235,21 @@ public sealed class EventStore
         return projection;
     }
 
+    /// <summary>
+    /// Return all projections of a given type.
+    /// </summary>
     public IEnumerable<TProjection> ListProjections<TProjection>() where TProjection : new() =>
         ListProjections<TProjection>(new Dictionary<String, String>());
 
+    /// <summary>
+    /// Return all projections of a given type matching a single filter.
+    /// </summary>
     public IEnumerable<TProjection> ListProjections<TProjection>(String key, String value) where TProjection : new() =>
         ListProjections<TProjection>(new Dictionary<String, String> { [key] = value });
-
+    
+    /// <summary>
+    /// Return all projections of a given type matching a multiple filters.
+    /// </summary>
     public IEnumerable<TProjection> ListProjections<TProjection>(IDictionary<String, String> query) where TProjection : new()
     {
         var type = typeof(TProjection);
@@ -192,9 +259,14 @@ public sealed class EventStore
 
         return records.Select(record => JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions));
     }
+    
+    // TODO: Indexes only updated on read
 
+    /// <summary>
+    /// Update all projections (and their indexes) of a given type.
+    /// </summary>
     /// <remarks>
-    /// This operation is expensive, requiring a scan of all streams.
+    /// This is essential in blue/green deployment environments when a projection might not have been updated. This operation is expensive, requiring a scan of all streams.
     /// </remarks>
     public async Task RefreshProjection<TProjection>(DateTimeOffset updatedSince = default, CancellationToken cancellationToken = default) where TProjection : new()
     {
@@ -217,9 +289,6 @@ public sealed class EventStore
             }
         }
     }
-    // TODO: Only create projection if not archived
-    // TODO: Only update projection if not archived
-    // TODO: Delete projections on archive
 
     private static void UpdateIndexes<TProjection>(IProjectionBuilder builder, TProjection projection, TableEntity record) where TProjection : new()
     {
