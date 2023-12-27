@@ -176,6 +176,8 @@ public sealed class EventStore
     //  * Write index
     //  * Query on index
     //  * Background refresh index
+    
+    // ProjectionId|Field|Value, StreamId
 
     private void ApplyEvents<TProjection>(TProjection projection, List<Event> events, IProjectionBuilder builder) where TProjection : new()
     {
