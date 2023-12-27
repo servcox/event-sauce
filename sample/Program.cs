@@ -35,7 +35,7 @@ foreach (var evt in store.ReadEvents(streamId, 0)) // <== Can pick a greater ver
 
 var projection = await store.ReadProjection<Cake>(streamId);
 
-// var projections = await store.ListProjections<Cake>(nameof(Cake.Color), "BLUE");
+var projections = store.ListProjections<Cake>(nameof(Cake.Color), "BLUE");
 
 
 public record Cake

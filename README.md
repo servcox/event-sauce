@@ -69,9 +69,14 @@ var store = new EventStore(connectionString, cfg => cfg
 );
 ```
 
-And then simply read the projection like this:
+Then simply read the projection like this:
 ```c#
 var projection = await store.ReadProjection<Cake>(streamId);
+```
+
+Or query on a field that has been indexed (see `.Index` above):
+```c#
+var projections = store.ListProjections<Cake>(nameof(Cake.Color), "BLUE");
 ```
 
 When you query a projection it will play out all events that have occured since the last query using the
