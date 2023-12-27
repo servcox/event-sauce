@@ -12,14 +12,16 @@ public sealed class ProjectionTable(TableClient table)
 
     public Pageable<ProjectionRecord> List(String projectionId, IDictionary<String, String> query)
     {
-        var filter = new StringBuilder($"PartitionKey eq '{projectionId}'");
+        if (query is null) throw new ArgumentNullException(nameof(query));
+        
+        var filter = $"PartitionKey eq '{projectionId}'";
         foreach (var q in query)
         {
             var qValue = q.Value.Replace("'", "''");
-            filter.Append($" and {q.Key} eq '{qValue}'");
+            filter += $" and {q.Key} eq '{qValue}'";
         }
 
-        return table.Query<ProjectionRecord>(filter.ToString());
+        return table.Query<ProjectionRecord>(filter);
     }
 
 
@@ -45,14 +47,17 @@ public sealed class ProjectionTable(TableClient table)
         return streamRecordWrapper.Value;
     }
 
-    public Task<Response> UpdateGeneric(TableEntity record, CancellationToken cancellationToken = default) =>
-        table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
+    public Task<Response> UpdateGeneric(TableEntity record, CancellationToken cancellationToken = default)
+    {
+        if (record is null) throw new ArgumentNullException(nameof(record));
+        return table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
+    }
 
     public async Task Delete(String projectionId, String streamId, CancellationToken cancellationToken = default)
     {
         try
         {
-            await table.DeleteEntityAsync(projectionId, streamId, cancellationToken: cancellationToken);
+            await table.DeleteEntityAsync(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (RequestFailedException ex) when (ex.ErrorCode == "EntityNotFound")
         {
@@ -64,7 +69,7 @@ public sealed class ProjectionTable(TableClient table)
     {
         try
         {
-            await table.DeleteEntityAsync(projectionId, streamId, cancellationToken: cancellationToken);
+            await table.DeleteEntityAsync(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (RequestFailedException ex) when (ex.ErrorCode == "EntityNotFound")
         {

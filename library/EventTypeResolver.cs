@@ -5,7 +5,7 @@ namespace ServcoX.EventSauce;
 
 public sealed class EventTypeResolver
 {
-    private readonly IReadOnlyDictionary<String, Type> _knownEventBodies;
+    private readonly Dictionary<String, Type> _knownEventBodies;
 
     public EventTypeResolver()
     {
@@ -33,7 +33,7 @@ public sealed class EventTypeResolver
 
         Queue(AppDomain.CurrentDomain.GetAssemblies());
 
-        while (pendingAssemblies.Any())
+        while (pendingAssemblies.Count > 0)
         {
             var assembly = pendingAssemblies.Pop() ?? throw new NeverNullException();
             QueueByName(assembly.GetReferencedAssemblies());

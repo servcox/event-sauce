@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AssemblyName>ServcoX.EventSauce</AssemblyName>
@@ -19,24 +18,31 @@
         <Product>Event Sauce</Product>
 
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-        <WarningsNotAsErrors>NU5125;CA1822</WarningsNotAsErrors>
-        <NoWarn>CA1040;CA1711;CA1716</NoWarn>
+        <WarningsNotAsErrors>NU5125;CA1822;SYSLIB0020;CA1850</WarningsNotAsErrors>
+        <NoWarn>CA1040;CA1711;CA1716;CA1510;CA1307</NoWarn>
         <AnalysisMode>All</AnalysisMode>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <LangVersion>12</LangVersion>
-        <Version>2.0.0</Version>
+        <Version>2.1.0</Version>
+        <TargetFrameworks>netstandard2.0;net7.0;net8.0</TargetFrameworks>
     </PropertyGroup>
-
-    <ItemGroup>
-        <None Update="servco.png">
-            <Pack>True</Pack>
-            <PackagePath></PackagePath>
-        </None>
-    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Azure.Data.Tables" Version="12.8.2"/>
         <PackageReference Include="ServcoX.Rfc7515C" Version="1.1.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Extensions\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="servco.png" />
+      <Content Include="servco.png">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Pack>True</Pack>
+        <PackagePath></PackagePath>
+      </Content>
     </ItemGroup>
 
 </Project>

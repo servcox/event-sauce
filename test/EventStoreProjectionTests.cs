@@ -12,7 +12,7 @@ namespace ServcoX.EventSauce.Tests;
 public class EventStoreProjectionTests
 {
     [Fact]
-    public void CanNotUseReservedIndexName() => Assert.Throws<InvalidIndexName>(() =>
+    public void CanNotUseReservedIndexName() => Assert.Throws<InvalidIndexNameException>(() =>
     {
         new EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
             .DefineProjection<TestProjection>(Wrapper.StreamType1, Wrapper.ProjectionVersion, builder => builder
@@ -21,7 +21,7 @@ public class EventStoreProjectionTests
     });
 
     [Fact]
-    public void CanNotUseTooLongIndexName() => Assert.Throws<InvalidIndexName>(() =>
+    public void CanNotUseTooLongIndexName() => Assert.Throws<InvalidIndexNameException>(() =>
     {
         new EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
             .DefineProjection<TestProjection>(Wrapper.StreamType1, Wrapper.ProjectionVersion, builder => builder

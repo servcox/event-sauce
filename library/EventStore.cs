@@ -9,7 +9,7 @@ using Timer = System.Timers.Timer;
 
 namespace ServcoX.EventSauce;
 
-public sealed class EventStore
+public sealed class EventStore : IDisposable
 {
     private const Int32 MaxEventsInWrite = 100; // Azure limit
     private readonly StreamTable _streamTable;
@@ -95,7 +95,7 @@ public sealed class EventStore
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
-        var record = await _streamTable.Read(streamId, cancellationToken);
+        var record = await _streamTable.Read(streamId, cancellationToken).ConfigureAwait(false);
         return Stream.CreateFrom(record);
     }
 
@@ -200,7 +200,7 @@ public sealed class EventStore
     /// <exception cref="StreamArchivedException"></exception>
     public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new()
     {
-        await RefreshProjections(streamId, cancellationToken);
+        await RefreshProjections(streamId, cancellationToken).ConfigureAwait(false);
 
         var projectionType = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(projectionType, out var builder)) throw new NotFoundException($"No projection for '{projectionType.FullName}' defined");
@@ -233,7 +233,7 @@ public sealed class EventStore
 
         var records = _projectionTable.List(builder.Id, query);
 
-        return records.Select(record => JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions));
+        return records.Select(record => JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions)!);
     }
 
     /// <summary>
@@ -241,8 +241,8 @@ public sealed class EventStore
     /// </summary>
     public async Task RefreshProjections(String streamId, CancellationToken cancellationToken = default)
     {
-        var streamRecord = await _streamTable.Read(streamId, cancellationToken);
-        await RefreshProjections(new List<StreamRecord> { streamRecord }, cancellationToken);
+        var streamRecord = await _streamTable.Read(streamId, cancellationToken).ConfigureAwait(false);
+        await RefreshProjections(new List<StreamRecord> { streamRecord }, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task RefreshProjections(IList<StreamRecord> streamRecords, CancellationToken cancellationToken = default)
@@ -262,16 +262,16 @@ public sealed class EventStore
 
                 if (streamRecord.IsArchived)
                 {
-                    await _projectionTable.TryDelete(projectionId, streamRecord.StreamId, cancellationToken);
+                    await _projectionTable.TryDelete(projectionId, streamRecord.StreamId, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
                     var projectionRecord = await _projectionTable.ReadOrNewGeneric(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
                     var projectionBody = projectionRecord.GetString(nameof(ProjectionRecord.Body));
                     var isNewProjection = String.IsNullOrEmpty(projectionBody);
-                    var projection = isNewProjection
+                    var projection = (isNewProjection
                         ? Activator.CreateInstance(projectionType)
-                        : JsonSerializer.Deserialize(projectionBody, projectionType, _configuration.SerializationOptions) ?? throw new NeverNullException();
+                        : JsonSerializer.Deserialize(projectionBody, projectionType, _configuration.SerializationOptions)) ?? throw new NeverNullException();
                     var nextVersion = isNewProjection
                         ? 0
                         : (UInt64)(projectionRecord.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) +
@@ -314,7 +314,7 @@ public sealed class EventStore
                 .GetType()
                 .GetMethod(nameof(Func<String>.Invoke)) ?? throw new NeverNullException(); // TODO: Better performance by precomputing this?
 
-            var value = (String)method.Invoke(index.Value, new[] { projection });
+            var value = (String)method.Invoke(index.Value, new[] { projection })!;
 
             record[field] = value;
         }
@@ -382,8 +382,8 @@ public sealed class EventStore
         {
             foreach (var index in projection.Value.Indexes)
             {
-                if (prohibitedIndexNames.Contains(index.Key.ToUpperInvariant())) throw new InvalidIndexName($"Projection '{projection.Key}' cannot have index using reserved name '{index.Key}'");
-                if (index.Key.Length > 255) throw new InvalidIndexName($"Projection '{projection.Key}' has index with name longer than 255 characters");
+                if (prohibitedIndexNames.Contains(index.Key.ToUpperInvariant())) throw new InvalidIndexNameException($"Projection '{projection.Key}' cannot have index using reserved name '{index.Key}'");
+                if (index.Key.Length > 255) throw new InvalidIndexNameException($"Projection '{projection.Key}' has index with name longer than 255 characters");
             }
         }
     }
@@ -405,7 +405,7 @@ public sealed class EventStore
                     .SelectMany(streamType => _streamTable.List(streamType, updatedSince: lastRun))
                     .ToList();
 
-                await RefreshProjections(streams);
+                await RefreshProjections(streams).ConfigureAwait(false);
                 lastRun = streams
                     .Select(stream => stream.Timestamp)
                     .OfType<DateTimeOffset>()
@@ -415,5 +415,10 @@ public sealed class EventStore
             _projectionRefreshTimer.AutoReset = false;
             _projectionRefreshTimer.Start();
         }
+    }
+
+    public void Dispose()
+    {
+        _projectionRefreshTimer?.Dispose();
     }
 }

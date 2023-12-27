@@ -35,6 +35,9 @@ public sealed class StreamTable(TableClient table)
         return streamRecordWrapper.Value;
     }
 
-    public Task<Response> Update(StreamRecord record, CancellationToken cancellationToken = default) =>
-        table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
+    public Task<Response> Update(StreamRecord record, CancellationToken cancellationToken = default)
+    {
+        if (record is null) throw new ArgumentNullException(nameof(record));
+        return table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
+    }
 }

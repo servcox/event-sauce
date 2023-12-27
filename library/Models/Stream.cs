@@ -6,7 +6,6 @@ public record struct Stream(String Id, String Type, UInt64 LatestVersion, DateTi
 {
     public static Stream CreateFrom(StreamRecord record)
     {
-        
         if (record is null) throw new ArgumentNullException(nameof(record));
 
         return new()
