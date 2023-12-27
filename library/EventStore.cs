@@ -13,6 +13,7 @@ public sealed class EventStore
     private readonly StreamTable _streamTable;
     private readonly EventTable _eventTable;
     private readonly ProjectionTable _projectionTable;
+    private readonly IndexTable _indexTable;
     private readonly EventTypeResolver _eventTypeResolver = new();
     private readonly BaseConfiguration _configuration;
 
@@ -25,12 +26,14 @@ public sealed class EventStore
         _streamTable = new(new(connectionString, _configuration.StreamTableName));
         _eventTable = new(new(connectionString, _configuration.EventTableName));
         _projectionTable = new(new(connectionString, _configuration.ProjectionTableName));
+        _indexTable = new(new(connectionString, _configuration.IndexTableName));
 
         if (_configuration.ShouldCreateTableIfMissing)
         {
             _streamTable.CreateUnderlyingIfNotExist();
             _eventTable.CreateUnderlyingIfNotExist();
             _projectionTable.CreateUnderlyingIfNotExist();
+            _indexTable.CreateUnderlyingIfNotExist();
         }
     }
 
