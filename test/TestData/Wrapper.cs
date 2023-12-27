@@ -111,10 +111,11 @@ public sealed class Wrapper : IDisposable
             .UseEventTable(eventTableName)
             .UseProjectionTable(projectionTableName)
             .DefineProjection<TestProjection>(ProjectionVersion, builder => builder
-                .On<TestAEvent>((prj, body, evt) => prj.A++)
-                .On<TestBEvent>((prj, body, evt) => prj.B++)
-                .OnOther((prj, evt) => prj.Other++)
-                .OnAny((prj, evt) => prj.Any++)
+                .OnCreation((prj, id) => prj.Id = id)
+                .OnEvent<TestAEvent>((prj, body, evt) => prj.A++)
+                .OnEvent<TestBEvent>((prj, body, evt) => prj.B++)
+                .OnUnexpectedEvent((prj, evt) => prj.Other++)
+                .OnAnyEvent((prj, evt) => prj.Any++)
                 .Index("A", prj => prj.A.ToString())
             )
         );

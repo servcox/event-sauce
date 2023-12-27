@@ -5,6 +5,8 @@ using ServcoX.EventSauce.TableRecords;
 using ServcoX.EventSauce.Tests.TestData;
 using ServcoX.EventSauce.Utilities;
 
+// ReSharper disable ObjectCreationAsStatement
+
 namespace ServcoX.EventSauce.Tests;
 
 public class EventStoreProjectionTests
@@ -28,11 +30,12 @@ public class EventStoreProjectionTests
     });
 
     [Fact]
-    public async Task CanReadProjection()
+    public async Task CanRead()
     {
         using var wrapper = new Wrapper();
 
         var prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1, CancellationToken.None);
+        prj.Id.Should().Be(Wrapper.StreamId1);
         prj.A.Should().Be(1);
         prj.B.Should().Be(1);
         prj.Any.Should().Be(3);
@@ -48,6 +51,7 @@ public class EventStoreProjectionTests
         await wrapper.Sut.WriteStream(Wrapper.StreamId1, new TestAEvent("a"), Wrapper.UserId, CancellationToken.None);
 
         prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1, CancellationToken.None);
+        prj.Id.Should().Be(Wrapper.StreamId1);
         prj.A.Should().Be(2);
         prj.B.Should().Be(1);
         prj.Any.Should().Be(4);
@@ -57,5 +61,26 @@ public class EventStoreProjectionTests
         record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(4);
         record.GetString(nameof(ProjectionRecord.Body)).Should().Be(JsonSerializer.Serialize(prj));
         record.GetString("A").Should().Be("2");
+    }
+
+    [Fact]
+    public void CanList()
+    {
+        using var wrapper = new Wrapper();
+        var projections = wrapper.Sut.ListProjections<TestProjection>().ToList();
+        projections.Count.Should().Be(1);
+        projections.Should().ContainSingle(projection => projection.Id == Wrapper.StreamId1);
+    }
+    
+    [Fact]
+    public void CanListWithFilter()
+    {
+        using var wrapper = new Wrapper();
+        var projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "2").ToList();
+        projections.Count.Should().Be(1);
+        projections.Should().ContainSingle(projection => projection.Id == Wrapper.StreamId1);
+        
+        projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "1").ToList();
+        projections.Count.Should().Be(0);
     }
 }

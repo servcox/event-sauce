@@ -128,7 +128,7 @@ public sealed class EventStore
             });
     }
 
-    public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new()
+    public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new() // TODO: Cleanup refactor
     {
         var type = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
@@ -147,7 +147,7 @@ public sealed class EventStore
 
         if (events.Count != 0)
         {
-            ApplyEvents(projection, events, builder);
+            ApplyEvents(streamId, projection, events, builder, isNewProjection);
             record[nameof(ProjectionRecord.Body)] = JsonSerializer.Serialize(projection, _configuration.SerializationOptions);
             record[nameof(ProjectionRecord.Version)] = events.Last().Version;
 
@@ -172,20 +172,23 @@ public sealed class EventStore
         return projection;
     }
     
-    // TODO
-    // public Task<TProjection> ListProjections<TProjection>() where TProjection : new() =>
-    //     ListProjections<TProjection>(new Dictionary<String, String>());
-    //
-    // public Task<TProjection> ListProjections<TProjection>(String key, String value) where TProjection : new() =>
-    //     ListProjections<TProjection>(new Dictionary<String, String> { [key] = value });
-    //
-    // public Task<TProjection> ListProjections<TProjection>(IDictionary<String, String> query) where TProjection : new()
-    // {
-    //     throw new NotImplementedException();
-    // }
+    public IEnumerable<TProjection> ListProjections<TProjection>() where TProjection : new() =>
+        ListProjections<TProjection>(new Dictionary<String, String>());
+    
+    public IEnumerable<TProjection> ListProjections<TProjection>(String key, String value) where TProjection : new() =>
+        ListProjections<TProjection>(new Dictionary<String, String> { [key] = value });
+
+    public IEnumerable<TProjection> ListProjections<TProjection>(IDictionary<String, String> query) where TProjection : new()
+    {
+        var type = typeof(TProjection);
+        if (!_configuration.Projections.TryGetValue(type, out var builder)) throw new NotFoundException($"No projection for '{type.FullName}' defined");
+        
+        var records= _projectionTable.List(builder.Id, query);
+        
+        return records.Select(record => JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions));
+    }
 
     // TODO:
-    //  * Write index
     //  * Query on index
     //  * Background refresh index
 
@@ -202,8 +205,13 @@ public sealed class EventStore
         }
     }
     
-    private void ApplyEvents<TProjection>(TProjection projection, List<Event> events, IProjectionBuilder builder) where TProjection : new()
+    private void ApplyEvents<TProjection>(String streamId, TProjection projection, List<Event> events, IProjectionBuilder builder, Boolean isNew) where TProjection : new()
     {
+        if (isNew)
+        {
+            foreach (var handler in builder.CreationHandlers) ((Action<TProjection, String>)handler)(projection, streamId);
+        }
+
         foreach (var evt in events)
         {
             var specificHandlerFound = false;

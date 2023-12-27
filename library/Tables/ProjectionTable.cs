@@ -1,5 +1,6 @@
 using Azure;
 using Azure.Data.Tables;
+using ServcoX.EventSauce.TableRecords;
 
 namespace ServcoX.EventSauce.Tables;
 
@@ -7,6 +8,19 @@ public sealed class ProjectionTable(TableClient table)
 {
     public void CreateUnderlyingIfNotExist() =>
         table.CreateIfNotExists();
+
+    public Pageable<ProjectionRecord> List(String projectionId, IDictionary<String,String> query)
+    {
+        var filter = $"PartitionKey eq '{projectionId}'";
+        foreach (var q in query)
+        {
+            var qValue = q.Value.Replace("'", "''");
+            filter += $" {q.Key} eq '{qValue}";
+        }
+
+        return table.Query<ProjectionRecord>(filter);
+    }
+
 
     public async Task Create(TableEntity record, CancellationToken cancellationToken) =>
         await table.AddEntityAsync(record, cancellationToken).ConfigureAwait(false);

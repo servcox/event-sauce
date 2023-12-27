@@ -48,19 +48,26 @@ Create a projection like this:
 ```c#
 public record Cake
 {
+    public String Id { get; set; }
     public Int32 Slices { get; set; }
     public String Color { get; set; }
+    public DateTime LastUpdatedAt { get; set; }
 }
 ```
 
 When you're creating your store, define how to build the projection:
 ```c#
 var store = new EventStore(connectionString, cfg => cfg
+    .UseStreamTable("stream")
+    .UseEventTable("event")
+    .UseProjectionTable("projection")
     .DefineProjection<Cake>(1, builder => builder
-        .On<CakeIced>((projection, body, evt) => projection.Color = body.Color)
-        .On<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
-        .OnOther((projection, evt) => { }) // Any event that hasn't been explicitly listed above
-        .OnAny((projection, evt) => { }) // Called on all events, in addition to any of the able
+        .OnCreation((projection, id) => projection.Id = id)
+        .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
+        .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
+        .OnUnexpectedEvent((projection, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered")) // Called for any event that doesn't have a specific handler
+        .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.CreatedAt) // Called for all events - expected and unexpected
+        .Index(nameof(Cake.Color), projection => projection.Color)
     )
 );
 ```

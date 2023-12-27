@@ -9,11 +9,12 @@ var store = new EventStore(connectionString, cfg => cfg
     .UseEventTable("event")
     .UseProjectionTable("projection")
     .DefineProjection<Cake>(1, builder => builder
-        .On<CakeIced>((projection, body, evt) => projection.Color = body.Color)
-        .On<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
-        .OnOther((projection, evt) => { })
-        .OnAny((projection, evt) => { })
-        //.Index(nameof(Cake.Color), projection => projection.Color)
+        .OnCreation((projection, id) => projection.Id = id)
+        .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
+        .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
+        .OnUnexpectedEvent((projection, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered")) // Called for any event that doesn't have a specific handler
+        .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.CreatedAt) // Called for all events - expected and unexpected
+        .Index(nameof(Cake.Color), projection => projection.Color)
     )
 );
 var streamId = Guid.NewGuid().ToString();
@@ -40,8 +41,10 @@ var projection = await store.ReadProjection<Cake>(streamId);
 
 public record Cake
 {
+    public String Id { get; set; }
     public Int32 Slices { get; set; }
     public String Color { get; set; }
+    public DateTime LastUpdatedAt { get; set; }
 }
 
 public readonly record struct BakedCake : IEventBody;

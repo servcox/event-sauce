@@ -10,9 +10,16 @@ namespace ServcoX.EventSauce.Configurations;
 public sealed class ProjectionConfiguration<TProjection>(UInt32 version) : IProjectionBuilder where TProjection : new()
 {
     public String Id { get; } = ProjectionIdUtilities.Compute(typeof(TProjection), version);
-    public Dictionary<Type, Collection<Object>> EventHandlers { get; } = new();
 
-    public ProjectionConfiguration<TProjection> On<TEventBody>(Action<TProjection, TEventBody, Event> action) where TEventBody : IEventBody
+    public Collection<Object> CreationHandlers { get; } = new();
+    public ProjectionConfiguration<TProjection> OnCreation(Action<TProjection, String> action)
+    {
+        CreationHandlers.Add(action);
+        return this;
+    }
+
+    public Dictionary<Type, Collection<Object>> EventHandlers { get; } = new();
+    public ProjectionConfiguration<TProjection> OnEvent<TEventBody>(Action<TProjection, TEventBody, Event> action) where TEventBody : IEventBody
     {
         var eventBodyType = typeof(TEventBody);
         if (!EventHandlers.TryGetValue(eventBodyType, out var actions)) EventHandlers[eventBodyType] = actions = new();
@@ -22,7 +29,7 @@ public sealed class ProjectionConfiguration<TProjection>(UInt32 version) : IProj
 
     public Collection<Object> FallbackHandlers { get; } = [];
 
-    public ProjectionConfiguration<TProjection> OnOther(Action<TProjection, Event> action)
+    public ProjectionConfiguration<TProjection> OnUnexpectedEvent(Action<TProjection, Event> action)
     {
         FallbackHandlers.Add(action);
         return this;
@@ -30,7 +37,7 @@ public sealed class ProjectionConfiguration<TProjection>(UInt32 version) : IProj
 
     public Collection<Object> PromiscuousHandlers { get; } = [];
 
-    public ProjectionConfiguration<TProjection> OnAny(Action<TProjection, Event> action)
+    public ProjectionConfiguration<TProjection> OnAnyEvent(Action<TProjection, Event> action)
     {
         PromiscuousHandlers.Add(action);
         return this;
@@ -49,6 +56,7 @@ public sealed class ProjectionConfiguration<TProjection>(UInt32 version) : IProj
 public interface IProjectionBuilder
 {
     public String Id { get; }
+    Collection<Object> CreationHandlers { get; }
     Dictionary<Type, Collection<Object>> EventHandlers { get; }
     Collection<Object> FallbackHandlers { get; }
     Collection<Object> PromiscuousHandlers { get; }
