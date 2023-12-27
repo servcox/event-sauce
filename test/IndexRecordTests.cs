@@ -8,7 +8,7 @@ public class IndexRecordTests
     private const String ProjectionId = "PROJECTIONID";
     private const String Field = "FIELD";
     private const String Value = "VALUE";
-    private const String PartitionKey = $"{ProjectionId}/{Field}/{Value}";
+    private const String PartitionKey = $"{ProjectionId}|{Field}|{Value}";
 
     [Fact]
     public void CanEncodePartitionKey()

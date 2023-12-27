@@ -10,7 +10,7 @@ namespace ServcoX.EventSauce.TableRecords;
 
 public sealed class IndexRecord : ITableEntity
 {
-    private const Char Separator = '/';
+    private const Char Separator = '|';
 
     [IgnoreDataMember]
     public String ProjectionId
