@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Reflection;
-using ServcoX.EventSauce.Models;
-using Stream = ServcoX.EventSauce.Models.Stream;
+using Stream = ServcoX.EventSauce.Stream;
 
 namespace ServcoX.EventSauce;
 

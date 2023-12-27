@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.Utilities;
 
 // ReSharper disable UnusedMethodReturnValue.Global

@@ -1,15 +1,13 @@
 using System.Text.Json;
 using Azure.Data.Tables;
 using ServcoX.EventSauce.Configurations;
-using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
 using ServcoX.EventSauce.Tables;
-using Stream = ServcoX.EventSauce.Models.Stream;
 using Timer = System.Timers.Timer;
 
 namespace ServcoX.EventSauce;
 
-public sealed class EventStore : IDisposable
+public sealed class EventStore : IDisposable, IEventStore
 {
     private const Int32 MaxEventsInWrite = 100; // Azure limit
     private readonly StreamTable _streamTable;

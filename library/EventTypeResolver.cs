@@ -1,5 +1,4 @@
 using System.Reflection;
-using ServcoX.EventSauce.Models;
 
 namespace ServcoX.EventSauce;
 

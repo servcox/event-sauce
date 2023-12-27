@@ -1,5 +1,3 @@
-using ServcoX.EventSauce.Models;
-
 namespace ServcoX.EventSauce.Tests.TestData;
 
 public readonly record struct TestAEvent(String A) : IEventBody;

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Azure.Data.Tables;
-using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
 
 namespace ServcoX.EventSauce.Tests.TestData;

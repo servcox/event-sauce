@@ -1,7 +1,6 @@
 using Azure;
 using Azure.Data.Tables;
 using FluentAssertions;
-using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
 
 // ReSharper disable ClassNeverInstantiated.Global
