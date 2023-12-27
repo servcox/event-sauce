@@ -198,7 +198,7 @@ public sealed class EventStore
     /// </summary>
     /// <exception cref="NotFoundException"></exception>
     /// <exception cref="StreamArchivedException"></exception>
-    public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new() // TODO: Cleanup refactor
+    public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new()
     {
         await RefreshProjections(streamId, cancellationToken);
 
@@ -235,10 +235,6 @@ public sealed class EventStore
 
         return records.Select(record => JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions));
     }
-
-    // TODO: Indexes only updated on read
-    // TODO: Automatic archiving and dearchiving?
-
 
     /// <summary>
     /// Refresh projections (and their indexes) for a given stream.
