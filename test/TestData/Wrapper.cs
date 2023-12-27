@@ -81,7 +81,6 @@ public sealed class Wrapper : IDisposable
     public TableClient StreamTable { get; }
     public TableClient EventTable { get; }
     public TableClient ProjectionTable { get; }
-    public TableClient IndexTable { get; }
     public EventStore Sut { get; }
 
     public Wrapper()
@@ -90,7 +89,6 @@ public sealed class Wrapper : IDisposable
         var streamTableName = $"stream{postfix}";
         var eventTableName = $"event{postfix}";
         var projectionTableName = $"projection{postfix}";
-        var indexTableName = $"index{postfix}";
 
         StreamTable = new(DevelopmentConnectionString, streamTableName);
         StreamTable.Create();
@@ -102,9 +100,6 @@ public sealed class Wrapper : IDisposable
 
         ProjectionTable = new(DevelopmentConnectionString, projectionTableName);
         ProjectionTable.Create();
-
-        IndexTable = new(DevelopmentConnectionString, indexTableName);
-        IndexTable.Create();
 
         Sut = new(DevelopmentConnectionString, cfg => cfg
             .UseStreamTable(streamTableName)
@@ -126,6 +121,5 @@ public sealed class Wrapper : IDisposable
         StreamTable.Delete();
         EventTable.Delete();
         ProjectionTable.Delete();
-        IndexTable.Delete();
     }
 }
