@@ -61,7 +61,7 @@ public class MemoryProjectorTests
         stream2.LastPersonToEat.Should().Be(null);
 
         var eatenSlices = 1;
-        await wrapper.EventStore.WriteStream(Stream2Id, new CakeSlicesEaten(eatenSlices), UserId, CancellationToken.None);
+        await wrapper.EventStore.WriteEvents(Stream2Id, new CakeSlicesEaten(eatenSlices), UserId, CancellationToken.None);
         Thread.Sleep(SyncInterval * 2);
 
         projections.Count.Should().Be(2);
@@ -89,7 +89,7 @@ public class MemoryProjectorTests
         using var wrapper = new Wrapper();
 
         await wrapper.InjectCakeStream1();
-        await wrapper.EventStore.WriteStream(Stream1Id, new CakeLicked(), UserId, CancellationToken.None);
+        await wrapper.EventStore.WriteEvents(Stream1Id, new CakeLicked(), UserId, CancellationToken.None);
         Thread.Sleep(SyncInterval * 2);
 
         var projection = wrapper.Sut.Where(_ => true).Single();
@@ -194,7 +194,7 @@ public class MemoryProjectorTests
         public async Task InjectCakeStream1()
         {
             await EventStore.CreateStream(Stream1Id, Stream1Type, CancellationToken.None);
-            await EventStore.WriteStream(Stream1Id, new IEventBody[]
+            await EventStore.WriteEvents(Stream1Id, new IEventBody[]
             {
                 new CakeBaked(),
                 new CakeIced(Stream1Colour),
@@ -205,7 +205,7 @@ public class MemoryProjectorTests
         public async Task InjectCakeStream2()
         {
             await EventStore.CreateStream(Stream2Id, Stream1Type, CancellationToken.None);
-            await EventStore.WriteStream(Stream2Id, new IEventBody[]
+            await EventStore.WriteEvents(Stream2Id, new IEventBody[]
             {
                 new CakeBaked(),
                 new CakeIced(Stream2Colour),
@@ -216,7 +216,7 @@ public class MemoryProjectorTests
         public async Task InjectVegetableStream1()
         {
             await EventStore.CreateStream(Stream3Id, Stream2Type, CancellationToken.None);
-            await EventStore.WriteStream(Stream3Id, new IEventBody[]
+            await EventStore.WriteEvents(Stream3Id, new IEventBody[]
             {
                 new GrowVegetables(),
             }, UserId, CancellationToken.None);

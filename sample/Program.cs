@@ -19,16 +19,16 @@ var store = new EventStore(connectionString, cfg => cfg
 var streamId = Guid.NewGuid().ToString();
 var userId = Guid.NewGuid().ToString();
 await store.CreateStream(streamId, streamType);
-await store.WriteStream(streamId, new BakedCake(), userId);
-await store.WriteStream(streamId, new CakeIced("BLUE"), userId);
-await store.WriteStream(streamId, new CakeCut(3), userId);
+await store.WriteEvents(streamId, new BakedCake(), userId);
+await store.WriteEvents(streamId, new CakeIced("BLUE"), userId);
+await store.WriteEvents(streamId, new CakeCut(3), userId);
 
 foreach (var stream in store.ListStreams(streamType))
 {
     Console.WriteLine(stream.Id);
 }
 
-foreach (var evt in store.ReadStream(streamId, 0)) // <== Can pick a greater version to only read new events
+foreach (var evt in store.ReadEvents(streamId, 0)) // <== Can pick a greater version to only read new events
 {
     Console.WriteLine(evt.Version + ": " + evt.Body);
 }

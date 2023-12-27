@@ -48,7 +48,7 @@ public class EventStoreProjectionTests
         record.GetString(nameof(ProjectionRecord.Body)).Should().Be(JsonSerializer.Serialize(prj));
         record.GetString("A").Should().Be("1"); // Indexed value
 
-        await wrapper.Sut.WriteStream(Wrapper.StreamId1, new TestAEvent("a"), Wrapper.UserId, CancellationToken.None);
+        await wrapper.Sut.WriteEvents(Wrapper.StreamId1, new TestAEvent("a"), Wrapper.UserId, CancellationToken.None);
 
         prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1, CancellationToken.None);
         prj.Id.Should().Be(Wrapper.StreamId1);

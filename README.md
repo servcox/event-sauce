@@ -25,9 +25,9 @@ var streamType = "CAKE";
 var streamId = Guid.NewGuid().ToString();
 var userId = Guid.NewGuid().ToString();
 await eventStore.CreateStream(streamId, streamType);
-await eventStore.WriteStream(streamId, new BakedCake(), userId);
-await eventStore.WriteStream(streamId, new IcedCake("BLUE"), userId);
-await eventStore.WriteStream(streamId, new CutCake(3), userId);
+await eventStore.WriteEvents(streamId, new BakedCake(), userId);
+await eventStore.WriteEvents(streamId, new IcedCake("BLUE"), userId);
+await eventStore.WriteEvents(streamId, new CutCake(3), userId);
 ```
 
 Get a list of streams you've already created like so:
@@ -38,7 +38,7 @@ foreach (var stream in eventStore.ListStreams(streamType)) Console.WriteLine(str
 And finally, read events back like here:
 ```c#
 var minVersion = 0; // <== Can pick a greater version to only read new events
-foreach (var evt in eventStore.ReadStream(streamId, 0)) Console.WriteLine(evt.Version + ": " + evt.Body);
+foreach (var evt in eventStore.ReadEvents(streamId, 0)) Console.WriteLine(evt.Version + ": " + evt.Body);
 ```
 
 # Projections

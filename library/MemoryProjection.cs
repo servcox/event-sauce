@@ -102,7 +102,7 @@ public sealed class MemoryProjector<T> : IDisposable
 
     private void SyncStream(Record record)
     {
-        var newEvents = _eventStore.ReadStream(record.StreamId, record.LocalVersion + 1);
+        var newEvents = _eventStore.ReadEvents(record.StreamId, record.LocalVersion + 1);
         foreach (var evt in newEvents)
         {
             InvokeApply(record.Projection, evt);

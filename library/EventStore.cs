@@ -79,13 +79,13 @@ public sealed class EventStore
         await _streamTable.Update(record, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task WriteStream(String streamId, IEventBody body, String createdBy, CancellationToken cancellationToken = default) =>
-        WriteStream(streamId, new[] { body }, createdBy, cancellationToken);
+    public Task WriteEvents(String streamId, IEventBody body, String createdBy, CancellationToken cancellationToken = default) =>
+        WriteEvents(streamId, new[] { body }, createdBy, cancellationToken);
 
-    public Task WriteStream(String streamId, IEnumerable<IEventBody> body, String createdBy, CancellationToken cancellationToken = default) =>
-        WriteStream(streamId, body.ToArray(), createdBy, cancellationToken);
+    public Task WriteEvents(String streamId, IEnumerable<IEventBody> body, String createdBy, CancellationToken cancellationToken = default) =>
+        WriteEvents(streamId, body.ToArray(), createdBy, cancellationToken);
 
-    public async Task WriteStream(String streamId, IEventBody[] bodies, String createdBy, CancellationToken cancellationToken = default)
+    public async Task WriteEvents(String streamId, IEventBody[] bodies, String createdBy, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
         if (bodies is null) throw new ArgumentNullException(nameof(bodies));
@@ -114,7 +114,7 @@ public sealed class EventStore
         await _streamTable.Update(streamRecord, cancellationToken).ConfigureAwait(false);
     }
 
-    public IEnumerable<Event> ReadStream(String streamId, UInt64 minVersion = 0)
+    public IEnumerable<Event> ReadEvents(String streamId, UInt64 minVersion = 0)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
 
@@ -138,7 +138,7 @@ public sealed class EventStore
         var isNewProjection = String.IsNullOrEmpty(body);
         var projection = isNewProjection ? new() : JsonSerializer.Deserialize<TProjection>(body, _configuration.SerializationOptions) ?? throw new NeverNullException();
         var nextVersion = isNewProjection ? 0 : (UInt64)(record.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) + 1;
-        var events = ReadStream(streamId, nextVersion).ToList();
+        var events = ReadEvents(streamId, nextVersion).ToList();
 
         if (events.Count != 0)
         {

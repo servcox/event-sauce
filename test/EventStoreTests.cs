@@ -80,7 +80,7 @@ public class EventStoreTests
     {
         using var wrapper = new Wrapper();
         var evt = new TestAEvent("a");
-        await wrapper.Sut.WriteStream(Wrapper.StreamId1, evt, Wrapper.UserId, CancellationToken.None);
+        await wrapper.Sut.WriteEvents(Wrapper.StreamId1, evt, Wrapper.UserId, CancellationToken.None);
         var stream = wrapper.StreamTable.GetEntity<StreamRecord>(Wrapper.StreamId1, Wrapper.StreamId1).Value;
         stream.LatestVersion.Should().Be(4);
 
@@ -98,7 +98,7 @@ public class EventStoreTests
     public async Task CanNotWriteToMissingStream()
     {
         using var wrapper = new Wrapper();
-        await Assert.ThrowsAsync<NotFoundException>(async () => await wrapper.Sut.WriteStream(Guid.NewGuid().ToString("N"), new TestAEvent("a"), Wrapper.UserId, CancellationToken.None));
+        await Assert.ThrowsAsync<NotFoundException>(async () => await wrapper.Sut.WriteEvents(Guid.NewGuid().ToString("N"), new TestAEvent("a"), Wrapper.UserId, CancellationToken.None));
     }
 
     [Fact]
@@ -112,14 +112,14 @@ public class EventStoreTests
             Version = 4,
             CreatedBy = Wrapper.UserId,
         });
-        await Assert.ThrowsAsync<OptimisticWriteInterruptedException>(async () => await wrapper.Sut.WriteStream(Wrapper.StreamId1, new TestAEvent(), Wrapper.UserId, CancellationToken.None));
+        await Assert.ThrowsAsync<OptimisticWriteInterruptedException>(async () => await wrapper.Sut.WriteEvents(Wrapper.StreamId1, new TestAEvent(), Wrapper.UserId, CancellationToken.None));
     }
 
     [Fact]
     public void CanReadStream()
     {
         using var wrapper = new Wrapper();
-        var events = wrapper.Sut.ReadStream(Wrapper.StreamId1).ToList();
+        var events = wrapper.Sut.ReadEvents(Wrapper.StreamId1).ToList();
         events.Count.Should().Be(3);
 
         events[0].StreamId.Should().Be(Wrapper.StreamId1);
@@ -148,7 +148,7 @@ public class EventStoreTests
     public void CanReadPartialStream()
     {
         using var wrapper = new Wrapper();
-        var events = wrapper.Sut.ReadStream(Wrapper.StreamId1, 3).ToList();
+        var events = wrapper.Sut.ReadEvents(Wrapper.StreamId1, 3).ToList();
         events.Count.Should().Be(1);
         events[0].StreamId.Should().Be(Wrapper.StreamId1);
         events[0].Type.Should().Be(Wrapper.EventType3.ToUpperInvariant());
