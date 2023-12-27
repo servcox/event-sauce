@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Azure.Data.Tables;
 using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
@@ -149,13 +150,35 @@ public sealed class EventStore
             record.Body = JsonSerializer.Serialize(projection, _configuration.SerializationOptions);
             record.Version = events.Last().Version;
 
-            if (isNewProjection)
+            try
             {
-                await _projectionTable.Create(record, cancellationToken).ConfigureAwait(false);
+                if (isNewProjection)
+                {
+                    await _projectionTable.Create(record, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _projectionTable.Update(record, cancellationToken).ConfigureAwait(false);
+                }
+
+                foreach (var index in builder.Indexes)
+                {
+                    var field = index.Key;
+                    var getter = (Func<TProjection, String>)index.Value;
+                    var value = getter.Invoke(projection);
+                    var projectionId = builder.Id;
+
+                    await _indexTable.CreateOrUpdate(new()
+                    {
+                        ProjectionId = projectionId,
+                        Field = field,
+                        Value = value,
+                        StreamId = streamId,
+                    }, cancellationToken);
+                }
             }
-            else
+            catch (TableTransactionFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists") // If another writer beat us TODO: Is this the correct exception for Update?
             {
-                await _projectionTable.Update(record, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -179,7 +202,7 @@ public sealed class EventStore
     //  * Write index
     //  * Query on index
     //  * Background refresh index
-    
+
     // ProjectionId|Field|Value, StreamId
 
     private void ApplyEvents<TProjection>(TProjection projection, List<Event> events, IProjectionBuilder builder) where TProjection : new()
