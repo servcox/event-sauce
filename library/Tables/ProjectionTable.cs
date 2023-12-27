@@ -15,7 +15,7 @@ public sealed class ProjectionTable(TableClient table)
         foreach (var q in query)
         {
             var qValue = q.Value.Replace("'", "''");
-            filter += $" {q.Key} eq '{qValue}";
+            filter += $" and {q.Key} eq '{qValue}'";
         }
 
         return table.Query<ProjectionRecord>(filter);
