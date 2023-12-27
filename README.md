@@ -38,7 +38,7 @@ foreach (var stream in eventStore.ListStreams(streamType)) Console.WriteLine(str
 And finally, read events back like here:
 ```c#
 var minVersion = 0; // <== Can pick a greater version to only read new events
-foreach (var evt in eventStore.ReadEvents(streamId, 0)) Console.WriteLine(evt.Version + ": " + evt.Body);
+foreach (var evt in eventStore.ReadEvents(streamId, minVersion)) Console.WriteLine(evt.Version + ": " + evt.Body);
 ```
 
 # Projections
