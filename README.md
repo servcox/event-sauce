@@ -58,10 +58,7 @@ public record Cake
 When you're creating your store, define how to build the projection:
 ```c#
 var store = new EventStore(connectionString, cfg => cfg
-    .UseStreamTable("stream")
-    .UseEventTable("event")
-    .UseProjectionTable("projection")
-    .DefineProjection<Cake>(1, builder => builder
+    .DefineProjection<Cake>(streamType: "CAKE", version: 1, builder => builder
         .OnCreation((projection, id) => projection.Id = id)
         .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
         .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)

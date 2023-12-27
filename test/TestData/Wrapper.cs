@@ -75,9 +75,9 @@ public sealed class Wrapper : IDisposable
     };
 
     public const UInt32 ProjectionVersion = 1;
-    
+
     public const String DevelopmentConnectionString = "UseDevelopmentStorage=true;";
-    
+
     public TableClient StreamTable { get; }
     public TableClient EventTable { get; }
     public TableClient ProjectionTable { get; }
@@ -110,12 +110,12 @@ public sealed class Wrapper : IDisposable
             .UseStreamTable(streamTableName)
             .UseEventTable(eventTableName)
             .UseProjectionTable(projectionTableName)
-            .DefineProjection<TestProjection>(ProjectionVersion, builder => builder
+            .DefineProjection<TestProjection>(StreamType1, ProjectionVersion, builder => builder
                 .OnCreation((prj, id) => prj.Id = id)
-                .OnEvent<TestAEvent>((prj, body, evt) => prj.A++)
-                .OnEvent<TestBEvent>((prj, body, evt) => prj.B++)
-                .OnUnexpectedEvent((prj, evt) => prj.Other++)
-                .OnAnyEvent((prj, evt) => prj.Any++)
+                .OnEvent<TestAEvent>((prj, _, _) => prj.A++)
+                .OnEvent<TestBEvent>((prj, _, _) => prj.B++)
+                .OnUnexpectedEvent((prj, _) => prj.Other++)
+                .OnAnyEvent((prj, _) => prj.Any++)
                 .Index("A", prj => prj.A.ToString())
             )
         );

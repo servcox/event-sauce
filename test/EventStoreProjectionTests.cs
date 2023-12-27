@@ -15,7 +15,7 @@ public class EventStoreProjectionTests
     public void CanNotUseReservedIndexName() => Assert.Throws<InvalidIndexName>(() =>
     {
         new EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
-            .DefineProjection<TestProjection>(Wrapper.ProjectionVersion, builder => builder
+            .DefineProjection<TestProjection>(Wrapper.StreamType1, Wrapper.ProjectionVersion, builder => builder
                 .Index(nameof(ProjectionRecord.ProjectionId), prj => prj.A.ToString())
             ));
     });
@@ -24,7 +24,7 @@ public class EventStoreProjectionTests
     public void CanNotUseTooLongIndexName() => Assert.Throws<InvalidIndexName>(() =>
     {
         new EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
-            .DefineProjection<TestProjection>(Wrapper.ProjectionVersion, builder => builder
+            .DefineProjection<TestProjection>(Wrapper.StreamType1, Wrapper.ProjectionVersion, builder => builder
                 .Index(new('a', 256), prj => prj.A.ToString())
             ));
     });
@@ -64,23 +64,33 @@ public class EventStoreProjectionTests
     }
 
     [Fact]
-    public void CanList()
+    public async Task CanList()
     {
         using var wrapper = new Wrapper();
+        await wrapper.Sut.RefreshProjection<TestProjection>();
         var projections = wrapper.Sut.ListProjections<TestProjection>().ToList();
         projections.Count.Should().Be(1);
         projections.Should().ContainSingle(projection => projection.Id == Wrapper.StreamId1);
     }
-    
+
     [Fact]
-    public void CanListWithFilter()
+    public async Task CanListWithFilter()
     {
         using var wrapper = new Wrapper();
+        await wrapper.Sut.RefreshProjection<TestProjection>();
         var projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "2").ToList();
         projections.Count.Should().Be(1);
         projections.Should().ContainSingle(projection => projection.Id == Wrapper.StreamId1);
-        
+
         projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "1").ToList();
         projections.Count.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CanRefreshProjection()
+    {
+        using var wrapper = new Wrapper();
+        await wrapper.Sut.RefreshProjection<TestProjection>();
+        wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
     }
 }

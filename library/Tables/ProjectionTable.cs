@@ -26,10 +26,15 @@ public sealed class ProjectionTable(TableClient table)
     public async Task Create(TableEntity record, CancellationToken cancellationToken) =>
         await table.AddEntityAsync(record, cancellationToken).ConfigureAwait(false);
 
-    public async Task<TableEntity?> TryRead(String projectionId, String streamId, CancellationToken cancellationToken = default)
+    public async Task<TableEntity> ReadOrNew(String projectionId, String streamId, CancellationToken cancellationToken = default)
     {
         var streamRecordWrapper = await table.GetEntityIfExistsAsync<TableEntity>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
-        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) return null;
+        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null)
+            return new()
+            {
+                PartitionKey = projectionId,
+                RowKey = streamId,
+            };
         return streamRecordWrapper.Value;
     }
 
@@ -38,4 +43,27 @@ public sealed class ProjectionTable(TableClient table)
 
     public Task<Response> CreateOrUpdate(TableEntity record, CancellationToken cancellationToken = default) =>
         table.UpsertEntityAsync(record, TableUpdateMode.Replace, cancellationToken);
+
+    public async Task Delete(String projectionId, String streamId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await table.DeleteEntityAsync(projectionId, streamId, cancellationToken: cancellationToken);
+        }
+        catch (RequestFailedException ex) when (ex.ErrorCode == "EntityNotFound")
+        {
+            throw new NotFoundException();
+        }
+    }
+    
+    public async Task TryDelete(String projectionId, String streamId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await table.DeleteEntityAsync(projectionId, streamId, cancellationToken: cancellationToken);
+        }
+        catch (RequestFailedException ex) when (ex.ErrorCode == "EntityNotFound")
+        {
+        }
+    }
 }

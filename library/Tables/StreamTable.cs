@@ -9,10 +9,11 @@ public sealed class StreamTable(TableClient table)
     public void CreateUnderlyingIfNotExist() =>
         table.CreateIfNotExists();
 
-    public Pageable<StreamRecord> List(String streamType) => table
+    public Pageable<StreamRecord> List(String streamType, DateTimeOffset? updatedSince = default, Boolean includeArchived = false) => table
         .Query<StreamRecord>(stream =>
             stream.Type.Equals(streamType.ToUpperInvariant(), StringComparison.OrdinalIgnoreCase) &&
-            !stream.IsArchived
+            (!updatedSince.HasValue || stream.Timestamp >= updatedSince) &&
+            (!stream.IsArchived || includeArchived)
         );
 
     public async Task Create(StreamRecord record, CancellationToken cancellationToken)

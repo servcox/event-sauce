@@ -1,5 +1,4 @@
-﻿using ServcoX.EventSauce;
-using ServcoX.EventSauce.Models;
+﻿using ServcoX.EventSauce.Models;
 using EventStore = ServcoX.EventSauce.EventStore;
 
 const String connectionString = "UseDevelopmentStorage=true;";
@@ -8,7 +7,7 @@ var store = new EventStore(connectionString, cfg => cfg
     .UseStreamTable("stream")
     .UseEventTable("event")
     .UseProjectionTable("projection")
-    .DefineProjection<Cake>(1, builder => builder
+    .DefineProjection<Cake>(streamType: streamType, version: 1, builder => builder
         .OnCreation((projection, id) => projection.Id = id)
         .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
         .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
@@ -41,9 +40,9 @@ var projection = await store.ReadProjection<Cake>(streamId);
 
 public record Cake
 {
-    public String Id { get; set; }
+    public String Id { get; set; } = String.Empty;
     public Int32 Slices { get; set; }
-    public String Color { get; set; }
+    public String Color { get; set; } = String.Empty;
     public DateTime LastUpdatedAt { get; set; }
 }
 
