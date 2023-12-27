@@ -21,4 +21,7 @@ public sealed class ProjectionTable(TableClient table)
 
     public Task<Response> Update(ProjectionRecord record, CancellationToken cancellationToken = default) =>
         table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
+    
+    public Task<Response> CreateOrUpdate(ProjectionRecord record, CancellationToken cancellationToken = default) =>
+        table.UpsertEntityAsync(record, TableUpdateMode.Replace, cancellationToken);
 }
