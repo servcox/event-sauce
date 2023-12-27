@@ -70,6 +70,14 @@ public sealed class EventStore
         }
     }
 
+    public async Task<Stream> ReadStream(String streamId, CancellationToken cancellationToken)
+    {
+        if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
+
+        var record = await _streamTable.Read(streamId, cancellationToken);
+        return Stream.CreateFrom(record);
+    }
+
     public async Task ArchiveStream(String streamId, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(streamId)) throw new ArgumentNullOrDefaultException(nameof(streamId));
@@ -132,6 +140,9 @@ public sealed class EventStore
     {
         var projectionType = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(projectionType, out var builder)) throw new NotFoundException($"No projection for '{projectionType.FullName}' defined");
+
+        var streamRecord = await _streamTable.Read(streamId, cancellationToken);
+        if (streamRecord.IsArchived) throw new StreamArchivedException($"Stream '{streamId}' is archived and cannot be projected");
 
         var record = await _projectionTable.ReadOrNew(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
         var body = record.GetString(nameof(ProjectionRecord.Body));

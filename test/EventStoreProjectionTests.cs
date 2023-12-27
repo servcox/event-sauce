@@ -34,7 +34,7 @@ public class EventStoreProjectionTests
     {
         using var wrapper = new Wrapper();
 
-        var prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1, CancellationToken.None);
+        var prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1);
         prj.Id.Should().Be(Wrapper.StreamId1);
         prj.A.Should().Be(1);
         prj.B.Should().Be(1);
@@ -48,9 +48,9 @@ public class EventStoreProjectionTests
         record.GetString(nameof(ProjectionRecord.Body)).Should().Be(JsonSerializer.Serialize(prj));
         record.GetString("A").Should().Be("1"); // Indexed value
 
-        await wrapper.Sut.WriteEvents(Wrapper.StreamId1, new TestAEvent("a"), Wrapper.UserId, CancellationToken.None);
+        await wrapper.Sut.WriteEvents(Wrapper.StreamId1, new TestAEvent("a"), Wrapper.UserId);
 
-        prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1, CancellationToken.None);
+        prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1);
         prj.Id.Should().Be(Wrapper.StreamId1);
         prj.A.Should().Be(2);
         prj.B.Should().Be(1);
@@ -61,6 +61,14 @@ public class EventStoreProjectionTests
         record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(4);
         record.GetString(nameof(ProjectionRecord.Body)).Should().Be(JsonSerializer.Serialize(prj));
         record.GetString("A").Should().Be("2");
+    }
+
+    [Fact]
+    public async Task CanNotReadArchivedProjection()
+    {
+        using var wrapper = new Wrapper();
+        await wrapper.Sut.ArchiveStream(Wrapper.StreamId1);
+        await Assert.ThrowsAsync<StreamArchivedException>(async () => await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1));
     }
 
     [Fact]
@@ -82,7 +90,7 @@ public class EventStoreProjectionTests
         projections.Count.Should().Be(1);
         projections.Should().ContainSingle(projection => projection.Id == Wrapper.StreamId1);
     }
-    
+
     [Fact]
     public async Task CanFindNothingWithBadFilter()
     {
