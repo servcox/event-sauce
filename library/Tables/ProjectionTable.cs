@@ -1,3 +1,4 @@
+using System.Text;
 using Azure;
 using Azure.Data.Tables;
 using ServcoX.EventSauce.TableRecords;
@@ -9,16 +10,16 @@ public sealed class ProjectionTable(TableClient table)
     public void CreateUnderlyingIfNotExist() =>
         table.CreateIfNotExists();
 
-    public Pageable<ProjectionRecord> List(String projectionId, IDictionary<String,String> query)
+    public Pageable<ProjectionRecord> List(String projectionId, IDictionary<String, String> query)
     {
-        var filter = $"PartitionKey eq '{projectionId}'";
+        var filter = new StringBuilder($"PartitionKey eq '{projectionId}'");
         foreach (var q in query)
         {
             var qValue = q.Value.Replace("'", "''");
-            filter += $" and {q.Key} eq '{qValue}'";
+            filter.Append($" and {q.Key} eq '{qValue}'");
         }
 
-        return table.Query<ProjectionRecord>(filter);
+        return table.Query<ProjectionRecord>(filter.ToString());
     }
 
 
@@ -34,7 +35,7 @@ public sealed class ProjectionTable(TableClient table)
 
     public Task<Response> Update(TableEntity record, CancellationToken cancellationToken = default) =>
         table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
-    
+
     public Task<Response> CreateOrUpdate(TableEntity record, CancellationToken cancellationToken = default) =>
         table.UpsertEntityAsync(record, TableUpdateMode.Replace, cancellationToken);
 }
