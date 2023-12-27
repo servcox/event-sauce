@@ -101,11 +101,19 @@ public class EventStoreProjectionTests
     }
 
     [Fact]
-    public async Task CanRefreshProjection()
+    public async Task CanManuallyRefresh()
     {
         using var wrapper = new Wrapper();
         wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(0);
         await wrapper.Sut.RefreshProjections(Wrapper.StreamId1);
+        wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
+    }
+    
+    [Fact]
+    public async Task CanAutomaticallyRefresh()
+    {
+        using var wrapper = new Wrapper(TimeSpan.FromSeconds(1));
+        await Task.Delay(TimeSpan.FromSeconds(1.1));
         wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
     }
 }

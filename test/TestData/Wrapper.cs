@@ -83,7 +83,7 @@ public sealed class Wrapper : IDisposable
     public TableClient ProjectionTable { get; }
     public EventStore Sut { get; }
 
-    public Wrapper()
+    public Wrapper(TimeSpan? projectionRefreshInterval =null)
     {
         var postfix = Guid.NewGuid().ToString("N").ToUpperInvariant();
         var streamTableName = $"stream{postfix}";
@@ -105,6 +105,7 @@ public sealed class Wrapper : IDisposable
             .UseStreamTable(streamTableName)
             .UseEventTable(eventTableName)
             .UseProjectionTable(projectionTableName)
+            .RefreshProjectionsEvery(projectionRefreshInterval ?? TimeSpan.FromHours(1))
             .DefineProjection<TestProjection>(StreamType1, ProjectionVersion, builder => builder
                 .OnCreation((prj, id) => prj.Id = id)
                 .OnEvent<TestAEvent>((prj, _, _) => prj.A++)

@@ -17,7 +17,7 @@ public sealed class EventStore
     private readonly ProjectionTable _projectionTable;
     private readonly EventTypeResolver _eventTypeResolver = new();
     private readonly BaseConfiguration _configuration;
-    private readonly Timer? _projectionRefreshTimer;
+    private Timer? _projectionRefreshTimer;
 
     public EventStore(String connectionString, Action<BaseConfiguration>? configure = null)
     {
@@ -38,31 +38,7 @@ public sealed class EventStore
             _projectionTable.CreateUnderlyingIfNotExist();
         }
 
-        if (_configuration.ProjectionRefreshInterval.HasValue)
-        {
-            _projectionRefreshTimer = new(_configuration.ProjectionRefreshInterval.Value.TotalMilliseconds);
-            var lastRun = new DateTimeOffset();
-            _projectionRefreshTimer.Elapsed += async (_, _) =>
-            {
-                var streamTypesWithProjections = _configuration.Projections
-                    .Select(a => a.Value.StreamType)
-                    .Distinct()
-                    .ToList();
-
-                var streams = streamTypesWithProjections
-                    .SelectMany(streamType => _streamTable.List(streamType, updatedSince: lastRun))
-                    .ToList();
-
-                await RefreshProjections(streams);
-                lastRun = streams
-                    .Select(stream => stream.Timestamp)
-                    .OfType<DateTimeOffset>()
-                    .Max();
-                _projectionRefreshTimer.Start();
-            };
-            _projectionRefreshTimer.AutoReset = false;
-            _projectionRefreshTimer.Start();
-        }
+        SetupProjectionRefreshTimer();
     }
 
     /// <summary>
@@ -413,6 +389,35 @@ public sealed class EventStore
                 if (prohibitedIndexNames.Contains(index.Key.ToUpperInvariant())) throw new InvalidIndexName($"Projection '{projection.Key}' cannot have index using reserved name '{index.Key}'");
                 if (index.Key.Length > 255) throw new InvalidIndexName($"Projection '{projection.Key}' has index with name longer than 255 characters");
             }
+        }
+    }
+    
+    private void SetupProjectionRefreshTimer()
+    {
+        if (_configuration.ProjectionRefreshInterval.HasValue)
+        {
+            _projectionRefreshTimer = new(_configuration.ProjectionRefreshInterval.Value.TotalMilliseconds);
+            var lastRun = new DateTimeOffset();
+            _projectionRefreshTimer.Elapsed += async (_, _) =>
+            {
+                var streamTypesWithProjections = _configuration.Projections
+                    .Select(a => a.Value.StreamType)
+                    .Distinct()
+                    .ToList();
+
+                var streams = streamTypesWithProjections
+                    .SelectMany(streamType => _streamTable.List(streamType, updatedSince: lastRun))
+                    .ToList();
+
+                await RefreshProjections(streams);
+                lastRun = streams
+                    .Select(stream => stream.Timestamp)
+                    .OfType<DateTimeOffset>()
+                    .Max();
+                _projectionRefreshTimer.Start();
+            };
+            _projectionRefreshTimer.AutoReset = false;
+            _projectionRefreshTimer.Start();
         }
     }
 }
