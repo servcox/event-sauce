@@ -78,18 +78,25 @@ public class EventStoreProjectionTests
     {
         using var wrapper = new Wrapper();
         await wrapper.Sut.RefreshProjection<TestProjection>();
-        var projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "2").ToList();
+        var projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "1").ToList();
         projections.Count.Should().Be(1);
         projections.Should().ContainSingle(projection => projection.Id == Wrapper.StreamId1);
-
-        projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "1").ToList();
-        projections.Count.Should().Be(0);
+    }
+    
+    [Fact]
+    public async Task CanFindNothingWithBadFilter()
+    {
+        using var wrapper = new Wrapper();
+        await wrapper.Sut.RefreshProjection<TestProjection>();
+        var projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "2").ToList();
+        projections.Count().Should().Be(0);
     }
 
     [Fact]
     public async Task CanRefreshProjection()
     {
         using var wrapper = new Wrapper();
+        wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(0);
         await wrapper.Sut.RefreshProjection<TestProjection>();
         wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
     }
