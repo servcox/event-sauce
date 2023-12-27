@@ -9,9 +9,9 @@ public sealed class StreamTable(TableClient table)
     public void CreateUnderlyingIfNotExist() =>
         table.CreateIfNotExists();
 
-    public Pageable<StreamRecord> List(String streamType, DateTimeOffset? updatedSince = default, Boolean includeArchived = false) => table
+    public Pageable<StreamRecord> List(String? streamType = default, DateTimeOffset? updatedSince = default, Boolean includeArchived = false) => table
         .Query<StreamRecord>(stream =>
-            stream.Type.Equals(streamType.ToUpperInvariant(), StringComparison.OrdinalIgnoreCase) &&
+            (streamType == null || stream.Type.Equals(streamType.ToUpperInvariant(), StringComparison.OrdinalIgnoreCase)) &&
             (!updatedSince.HasValue || stream.Timestamp >= updatedSince) &&
             (!stream.IsArchived || includeArchived)
         );

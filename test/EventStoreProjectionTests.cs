@@ -68,14 +68,14 @@ public class EventStoreProjectionTests
     {
         using var wrapper = new Wrapper();
         await wrapper.Sut.ArchiveStream(Wrapper.StreamId1);
-        await Assert.ThrowsAsync<StreamArchivedException>(async () => await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1));
+        await Assert.ThrowsAsync<NotFoundException>(async () => await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1));
     }
 
     [Fact]
     public async Task CanList()
     {
         using var wrapper = new Wrapper();
-        await wrapper.Sut.RefreshProjection<TestProjection>();
+        await wrapper.Sut.RefreshProjections(Wrapper.StreamId1);
         var projections = wrapper.Sut.ListProjections<TestProjection>().ToList();
         projections.Count.Should().Be(1);
         projections.Should().ContainSingle(projection => projection.Id == Wrapper.StreamId1);
@@ -85,7 +85,7 @@ public class EventStoreProjectionTests
     public async Task CanListWithFilter()
     {
         using var wrapper = new Wrapper();
-        await wrapper.Sut.RefreshProjection<TestProjection>();
+        await wrapper.Sut.RefreshProjections(Wrapper.StreamId1);
         var projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "1").ToList();
         projections.Count.Should().Be(1);
         projections.Should().ContainSingle(projection => projection.Id == Wrapper.StreamId1);
@@ -95,7 +95,7 @@ public class EventStoreProjectionTests
     public async Task CanFindNothingWithBadFilter()
     {
         using var wrapper = new Wrapper();
-        await wrapper.Sut.RefreshProjection<TestProjection>();
+        await wrapper.Sut.RefreshProjections(Wrapper.StreamId1);
         var projections = wrapper.Sut.ListProjections<TestProjection>(nameof(TestProjection.A), "2").ToList();
         projections.Count().Should().Be(0);
     }
@@ -105,7 +105,7 @@ public class EventStoreProjectionTests
     {
         using var wrapper = new Wrapper();
         wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(0);
-        await wrapper.Sut.RefreshProjection<TestProjection>();
+        await wrapper.Sut.RefreshProjections(Wrapper.StreamId1);
         wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
     }
 }

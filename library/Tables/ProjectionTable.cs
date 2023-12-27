@@ -23,10 +23,17 @@ public sealed class ProjectionTable(TableClient table)
     }
 
 
-    public async Task Create(TableEntity record, CancellationToken cancellationToken) =>
+    public async Task CreateGeneric(TableEntity record, CancellationToken cancellationToken) =>
         await table.AddEntityAsync(record, cancellationToken).ConfigureAwait(false);
 
-    public async Task<TableEntity> ReadOrNew(String projectionId, String streamId, CancellationToken cancellationToken = default)
+    public async Task<ProjectionRecord> Read(String projectionId, String streamId, CancellationToken cancellationToken = default)
+    {
+        var streamRecordWrapper = await table.GetEntityIfExistsAsync<ProjectionRecord>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
+        return streamRecordWrapper.Value;
+    }
+    
+    public async Task<TableEntity> ReadOrNewGeneric(String projectionId, String streamId, CancellationToken cancellationToken = default)
     {
         var streamRecordWrapper = await table.GetEntityIfExistsAsync<TableEntity>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null)
@@ -38,11 +45,8 @@ public sealed class ProjectionTable(TableClient table)
         return streamRecordWrapper.Value;
     }
 
-    public Task<Response> Update(TableEntity record, CancellationToken cancellationToken = default) =>
+    public Task<Response> UpdateGeneric(TableEntity record, CancellationToken cancellationToken = default) =>
         table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
-
-    public Task<Response> CreateOrUpdate(TableEntity record, CancellationToken cancellationToken = default) =>
-        table.UpsertEntityAsync(record, TableUpdateMode.Replace, cancellationToken);
 
     public async Task Delete(String projectionId, String streamId, CancellationToken cancellationToken = default)
     {

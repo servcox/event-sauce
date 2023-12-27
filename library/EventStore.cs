@@ -5,6 +5,7 @@ using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.TableRecords;
 using ServcoX.EventSauce.Tables;
 using Stream = ServcoX.EventSauce.Models.Stream;
+using Timer = System.Timers.Timer;
 
 namespace ServcoX.EventSauce;
 
@@ -16,6 +17,7 @@ public sealed class EventStore
     private readonly ProjectionTable _projectionTable;
     private readonly EventTypeResolver _eventTypeResolver = new();
     private readonly BaseConfiguration _configuration;
+    private readonly Timer? _projectionRefreshTimer;
 
     public EventStore(String connectionString, Action<BaseConfiguration>? configure = null)
     {
@@ -34,6 +36,32 @@ public sealed class EventStore
             _streamTable.CreateUnderlyingIfNotExist();
             _eventTable.CreateUnderlyingIfNotExist();
             _projectionTable.CreateUnderlyingIfNotExist();
+        }
+
+        if (_configuration.ProjectionRefreshInterval.HasValue)
+        {
+            _projectionRefreshTimer = new(_configuration.ProjectionRefreshInterval.Value.TotalMilliseconds);
+            var lastRun = new DateTimeOffset();
+            _projectionRefreshTimer.Elapsed += async (_, _) =>
+            {
+                var streamTypesWithProjections = _configuration.Projections
+                    .Select(a => a.Value.StreamType)
+                    .Distinct()
+                    .ToList();
+
+                var streams = streamTypesWithProjections
+                    .SelectMany(streamType => _streamTable.List(streamType, updatedSince: lastRun))
+                    .ToList();
+
+                await RefreshProjections(streams);
+                lastRun = streams
+                    .Select(stream => stream.Timestamp)
+                    .OfType<DateTimeOffset>()
+                    .Max();
+                _projectionRefreshTimer.Start();
+            };
+            _projectionRefreshTimer.AutoReset = false;
+            _projectionRefreshTimer.Start();
         }
     }
 
@@ -110,7 +138,7 @@ public sealed class EventStore
         record.IsArchived = true;
         await _streamTable.Update(record, cancellationToken).ConfigureAwait(false);
     }
-    
+
     /// <summary>
     /// Unarchive a stream, returning it to lists and projections
     /// </summary>
@@ -196,41 +224,13 @@ public sealed class EventStore
     /// <exception cref="StreamArchivedException"></exception>
     public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new() // TODO: Cleanup refactor
     {
+        await RefreshProjections(streamId, cancellationToken);
+
         var projectionType = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(projectionType, out var builder)) throw new NotFoundException($"No projection for '{projectionType.FullName}' defined");
 
-        var streamRecord = await _streamTable.Read(streamId, cancellationToken);
-        if (streamRecord.IsArchived) throw new StreamArchivedException($"Stream '{streamId}' is archived and cannot be projected");
-
-        var record = await _projectionTable.ReadOrNew(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
-        var body = record.GetString(nameof(ProjectionRecord.Body));
-        var isNewProjection = String.IsNullOrEmpty(body);
-        var projection = isNewProjection ? new() : JsonSerializer.Deserialize<TProjection>(body, _configuration.SerializationOptions) ?? throw new NeverNullException();
-        var nextVersion = isNewProjection ? 0 : (UInt64)(record.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) + 1;
-        var events = ReadEvents(streamId, nextVersion).ToList();
-
-        if (events.Count != 0)
-        {
-            ApplyEvents(streamId, projection, events, builder, isNewProjection);
-            record[nameof(ProjectionRecord.Body)] = JsonSerializer.Serialize(projection, _configuration.SerializationOptions);
-            record[nameof(ProjectionRecord.Version)] = events.Last().Version;
-            UpdateIndexes(builder, projection, record);
-
-            try
-            {
-                if (isNewProjection)
-                {
-                    await _projectionTable.Create(record, cancellationToken).ConfigureAwait(false);
-                }
-                else
-                {
-                    await _projectionTable.Update(record, cancellationToken).ConfigureAwait(false);
-                }
-            }
-            catch (TableTransactionFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists") // If another writer beat us TODO: Is this the correct exception for Update?
-            {
-            }
-        }
+        var record = await _projectionTable.Read(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
+        var projection = JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
 
         return projection;
     }
@@ -246,7 +246,7 @@ public sealed class EventStore
     /// </summary>
     public IEnumerable<TProjection> ListProjections<TProjection>(String key, String value) where TProjection : new() =>
         ListProjections<TProjection>(new Dictionary<String, String> { [key] = value });
-    
+
     /// <summary>
     /// Return all projections of a given type matching a multiple filters.
     /// </summary>
@@ -259,54 +259,107 @@ public sealed class EventStore
 
         return records.Select(record => JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions));
     }
-    
+
     // TODO: Indexes only updated on read
+    // TODO: Automatic archiving and dearchiving?
+
 
     /// <summary>
-    /// Update all projections (and their indexes) of a given type.
+    /// Refresh projections (and their indexes) for a given stream.
     /// </summary>
-    /// <remarks>
-    /// This is essential in blue/green deployment environments when a projection might not have been updated. This operation is expensive, requiring a scan of all streams.
-    /// </remarks>
-    public async Task RefreshProjection<TProjection>(DateTimeOffset updatedSince = default, CancellationToken cancellationToken = default) where TProjection : new()
+    public async Task RefreshProjections(String streamId, CancellationToken cancellationToken = default)
     {
-        var projectionType = typeof(TProjection);
-        if (!_configuration.Projections.TryGetValue(projectionType, out var builder)) throw new NotFoundException($"No projection for '{projectionType.FullName}' defined");
+        var streamRecord = await _streamTable.Read(streamId, cancellationToken);
+        await RefreshProjections(new List<StreamRecord> { streamRecord }, cancellationToken);
+    }
 
-        var projectionId = builder.Id;
-        var streamType = builder.StreamType;
-
-        var streamRecords = _streamTable.List(streamType, updatedSince, true);
+    private async Task RefreshProjections(IList<StreamRecord> streamRecords, CancellationToken cancellationToken = default)
+    {
         foreach (var streamRecord in streamRecords)
         {
-            if (streamRecord.IsArchived)
+            var streamId = streamRecord.StreamId;
+            var streamType = streamRecord.Type;
+
+            foreach (var p in _configuration.Projections)
             {
-                await _projectionTable.TryDelete(projectionId, streamRecord.StreamId, cancellationToken);
-            }
-            else
-            {
-                await ReadProjection<TProjection>(streamRecord.StreamId, cancellationToken);
+                var projectionType = p.Key;
+                var projectionId = p.Value.Id;
+                var builder = p.Value;
+
+                if (builder.StreamType != streamType) continue;
+
+                if (streamRecord.IsArchived)
+                {
+                    await _projectionTable.TryDelete(projectionId, streamRecord.StreamId, cancellationToken);
+                }
+                else
+                {
+                    var projectionRecord = await _projectionTable.ReadOrNewGeneric(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
+                    var projectionBody = projectionRecord.GetString(nameof(ProjectionRecord.Body));
+                    var isNewProjection = String.IsNullOrEmpty(projectionBody);
+                    var projection = isNewProjection
+                        ? Activator.CreateInstance(projectionType)
+                        : JsonSerializer.Deserialize(projectionBody, projectionType, _configuration.SerializationOptions) ?? throw new NeverNullException();
+                    var nextVersion = isNewProjection
+                        ? 0
+                        : (UInt64)(projectionRecord.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) +
+                          1; // TODO: Possible to only read events once, even when involved in multiple projections
+                    var events = ReadEvents(streamId, nextVersion).ToList();
+
+                    if (events.Count != 0)
+                    {
+                        ApplyEvents(streamId, projection, events, builder, isNewProjection);
+                        projectionRecord[nameof(ProjectionRecord.Body)] = JsonSerializer.Serialize(projection, _configuration.SerializationOptions);
+                        projectionRecord[nameof(ProjectionRecord.Version)] = events.Last().Version;
+                        UpdateIndexes(builder, projection, projectionRecord);
+
+                        try
+                        {
+                            if (isNewProjection)
+                            {
+                                await _projectionTable.CreateGeneric(projectionRecord, cancellationToken).ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                await _projectionTable.UpdateGeneric(projectionRecord, cancellationToken).ConfigureAwait(false);
+                            }
+                        }
+                        catch (TableTransactionFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists") // If another writer beat us TODO: Is this the correct exception for Update?
+                        {
+                        }
+                    }
+                }
             }
         }
     }
 
-    private static void UpdateIndexes<TProjection>(IProjectionBuilder builder, TProjection projection, TableEntity record) where TProjection : new()
+    private static void UpdateIndexes(IProjectionBuilder builder, Object projection, TableEntity record)
     {
         foreach (var index in builder.Indexes)
         {
             var field = index.Key;
-            var getter = (Func<TProjection, String>)index.Value;
-            var value = getter.Invoke(projection);
+            var method = index.Value
+                .GetType()
+                .GetMethod(nameof(Func<String>.Invoke)) ?? throw new NeverNullException(); // TODO: Better performance by precomputing this?
+
+            var value = (String)method.Invoke(index.Value, new[] { projection });
 
             record[field] = value;
         }
     }
 
-    private void ApplyEvents<TProjection>(String streamId, TProjection projection, List<Event> events, IProjectionBuilder builder, Boolean isNew) where TProjection : new()
+    private void ApplyEvents(String streamId, Object projection, List<Event> events, IProjectionBuilder builder, Boolean isNew)
     {
         if (isNew)
         {
-            foreach (var handler in builder.CreationHandlers) ((Action<TProjection, String>)handler)(projection, streamId);
+            // foreach (var handler in builder.CreationHandlers) ((Action<TProjection, String>)handler)(projection, streamId);
+            foreach (var handler in builder.CreationHandlers)
+            {
+                var method = handler
+                    .GetType()
+                    .GetMethod(nameof(Action.Invoke)) ?? throw new NeverNullException(); // TODO: Better performance by precomputing this?
+                method.Invoke(handler, new[] { projection, streamId });
+            }
         }
 
         foreach (var evt in events)
@@ -323,17 +376,30 @@ public sealed class EventStore
                         var method = handler
                             .GetType()
                             .GetMethod(nameof(Action.Invoke)) ?? throw new NeverNullException();
-                        method.Invoke(handler, new Object?[] { projection, evt.Body, evt });
+                        method.Invoke(handler, new[] { projection, evt.Body, evt });
                     }
                 }
             }
 
             if (!specificHandlerFound)
             {
-                foreach (var handler in builder.FallbackHandlers) ((Action<TProjection, Event>)handler)(projection, evt);
+                foreach (var handler in builder.FallbackHandlers)
+                {
+                    var method = handler
+                        .GetType()
+                        .GetMethod(nameof(Action.Invoke)) ?? throw new NeverNullException(); // TODO: Better performance by precomputing this?
+                    method.Invoke(handler, new[] { projection, evt });
+                }
             }
 
-            foreach (var handler in builder.PromiscuousHandlers) ((Action<TProjection, Event>)handler)(projection, evt);
+
+            foreach (var handler in builder.PromiscuousHandlers)
+            {
+                var method = handler
+                    .GetType()
+                    .GetMethod(nameof(Action.Invoke)) ?? throw new NeverNullException(); // TODO: Better performance by precomputing this?
+                method.Invoke(handler, new[] { projection, evt });
+            }
         }
     }
 

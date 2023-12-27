@@ -9,18 +9,13 @@ namespace ServcoX.EventSauce.Configurations;
 
 public sealed class BaseConfiguration
 {
-    public String StreamTableName { get; set; } = "stream";
-    public String EventTableName { get; set; } = "event";
-    public String ProjectionTableName { get; set; } = "projection";
-    public Boolean ShouldCreateTableIfMissing { get; set; }
-
-    public Dictionary<Type, IProjectionBuilder> Projections { get; } = new();
-
     public JsonSerializerOptions SerializationOptions { get; set; } = new()
     {
         IgnoreNullValues = true,
         // If upgrading SDK: DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
     };
+
+    public String StreamTableName { get; set; } = "stream";
 
     public BaseConfiguration UseStreamTable(String name)
     {
@@ -28,11 +23,15 @@ public sealed class BaseConfiguration
         return this;
     }
 
+    public String EventTableName { get; set; } = "event";
+
     public BaseConfiguration UseEventTable(String name)
     {
         EventTableName = name;
         return this;
     }
+
+    public String ProjectionTableName { get; set; } = "projection";
 
     public BaseConfiguration UseProjectionTable(String name)
     {
@@ -40,16 +39,28 @@ public sealed class BaseConfiguration
         return this;
     }
 
+    public Boolean ShouldCreateTableIfMissing { get; set; }
+
     public BaseConfiguration CreateTablesIfMissing()
     {
         ShouldCreateTableIfMissing = true;
         return this;
     }
 
+    public TimeSpan? ProjectionRefreshInterval { get; set; }
+
+    public BaseConfiguration RefreshProjectionsEvery(TimeSpan interval)
+    {
+        ProjectionRefreshInterval = interval;
+        return this;
+    }
+
+    public Dictionary<Type, IProjectionBuilder> Projections { get; } = new();
+
     public BaseConfiguration DefineProjection<TProjection>(String streamType, UInt32 version, Action<ProjectionConfiguration<TProjection>> build) where TProjection : new()
     {
         if (build is null) throw new ArgumentNullException(nameof(build));
-        
+
         var type = typeof(TProjection);
         var builder = new ProjectionConfiguration<TProjection>(streamType, version);
         build(builder);
