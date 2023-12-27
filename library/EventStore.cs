@@ -192,20 +192,33 @@ public sealed class EventStore : IDisposable, IEventStore
     }
 
     /// <summary>
-    /// Read a projection, aggregating any new events into the projection if required
+    /// Read a projection, aggregating any new events into the projection if required.
+    /// </summary>
+    /// <exception cref="NotFoundException"></exception>
+    /// <exception cref="StreamArchivedException"></exception>
+    public async Task<TProjection?> TryReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new()
+    {
+        await TryRefreshProjections(streamId, cancellationToken).ConfigureAwait(false);
+
+        var projectionType = typeof(TProjection);
+        if (!_configuration.Projections.TryGetValue(projectionType, out var builder)) throw new NotFoundException($"No projection for '{projectionType.FullName}' defined");
+
+        var record = await _projectionTable.TryRead(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
+        if (record is null) return default;
+        var projection = JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
+
+        return projection;
+    }
+
+    /// <summary>
+    /// Read a projection, aggregating any new events into the projection if required.
     /// </summary>
     /// <exception cref="NotFoundException"></exception>
     /// <exception cref="StreamArchivedException"></exception>
     public async Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new()
     {
-        await RefreshProjections(streamId, cancellationToken).ConfigureAwait(false);
-
-        var projectionType = typeof(TProjection);
-        if (!_configuration.Projections.TryGetValue(projectionType, out var builder)) throw new NotFoundException($"No projection for '{projectionType.FullName}' defined");
-
-        var record = await _projectionTable.Read(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
-        var projection = JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
-
+        var projection = await TryReadProjection<TProjection>(streamId, cancellationToken).ConfigureAwait(false);
+        if (projection is null) throw new NotFoundException();
         return projection;
     }
 
@@ -237,13 +250,14 @@ public sealed class EventStore : IDisposable, IEventStore
     /// <summary>
     /// Refresh projections (and their indexes) for a given stream.
     /// </summary>
-    public async Task RefreshProjections(String streamId, CancellationToken cancellationToken = default)
+    public async Task TryRefreshProjections(String streamId, CancellationToken cancellationToken = default)
     {
-        var streamRecord = await _streamTable.Read(streamId, cancellationToken).ConfigureAwait(false);
-        await RefreshProjections(new List<StreamRecord> { streamRecord }, cancellationToken).ConfigureAwait(false);
+        var streamRecord = await _streamTable.TryRead(streamId, cancellationToken).ConfigureAwait(false);
+        if (streamRecord is null) return;
+        await TryRefreshProjections(new List<StreamRecord> { streamRecord }, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task RefreshProjections(IList<StreamRecord> streamRecords, CancellationToken cancellationToken = default)
+    private async Task TryRefreshProjections(IList<StreamRecord> streamRecords, CancellationToken cancellationToken = default)
     {
         foreach (var streamRecord in streamRecords)
         {
@@ -380,12 +394,13 @@ public sealed class EventStore : IDisposable, IEventStore
         {
             foreach (var index in projection.Value.Indexes)
             {
-                if (prohibitedIndexNames.Contains(index.Key.ToUpperInvariant())) throw new InvalidIndexNameException($"Projection '{projection.Key}' cannot have index using reserved name '{index.Key}'");
+                if (prohibitedIndexNames.Contains(index.Key.ToUpperInvariant()))
+                    throw new InvalidIndexNameException($"Projection '{projection.Key}' cannot have index using reserved name '{index.Key}'");
                 if (index.Key.Length > 255) throw new InvalidIndexNameException($"Projection '{projection.Key}' has index with name longer than 255 characters");
             }
         }
     }
-    
+
     private void SetupProjectionRefreshTimer()
     {
         if (_configuration.ProjectionRefreshInterval.HasValue)
@@ -403,7 +418,7 @@ public sealed class EventStore : IDisposable, IEventStore
                     .SelectMany(streamType => _streamTable.List(streamType, updatedSince: lastRun))
                     .ToList();
 
-                await RefreshProjections(streams).ConfigureAwait(false);
+                await TryRefreshProjections(streams).ConfigureAwait(false);
                 lastRun = streams
                     .Select(stream => stream.Timestamp)
                     .OfType<DateTimeOffset>()

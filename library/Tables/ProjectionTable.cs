@@ -35,6 +35,13 @@ public sealed class ProjectionTable(TableClient table)
         return streamRecordWrapper.Value;
     }
     
+    public async Task<ProjectionRecord?> TryRead(String projectionId, String streamId, CancellationToken cancellationToken = default)
+    {
+        var streamRecordWrapper = await table.GetEntityIfExistsAsync<ProjectionRecord>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) return null;
+        return streamRecordWrapper.Value;
+    }
+    
     public async Task<TableEntity> ReadOrNewGeneric(String projectionId, String streamId, CancellationToken cancellationToken = default)
     {
         var streamRecordWrapper = await table.GetEntityIfExistsAsync<TableEntity>(projectionId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);

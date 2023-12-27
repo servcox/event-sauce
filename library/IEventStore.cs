@@ -70,11 +70,16 @@ public interface IEventStore
     IEnumerable<Event> ReadEvents(String streamId, UInt64 minVersion = 0);
 
     /// <summary>
-    /// Read a projection, aggregating any new events into the projection if required
+    /// Read a projection, aggregating any new events into the projection if required.
     /// </summary>
     /// <exception cref="NotFoundException"></exception>
     /// <exception cref="StreamArchivedException"></exception>
     Task<TProjection> ReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new();
+    
+    /// <summary>
+    /// Read a projection, aggregating any new events into the projection if required.
+    /// </summary>
+    Task<TProjection?> TryReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new();
 
     /// <summary>
     /// Return all projections of a given type.
@@ -94,5 +99,5 @@ public interface IEventStore
     /// <summary>
     /// Refresh projections (and their indexes) for a given stream.
     /// </summary>
-    Task RefreshProjections(String streamId, CancellationToken cancellationToken = default);
+    Task TryRefreshProjections(String streamId, CancellationToken cancellationToken = default);
 }

@@ -34,6 +34,13 @@ public sealed class StreamTable(TableClient table)
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
         return streamRecordWrapper.Value;
     }
+    
+    public async Task<StreamRecord?> TryRead(String streamId, CancellationToken cancellationToken = default)
+    {
+        var streamRecordWrapper = await table.GetEntityIfExistsAsync<StreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) return null;
+        return streamRecordWrapper.Value;
+    }
 
     public Task<Response> Update(StreamRecord record, CancellationToken cancellationToken = default)
     {

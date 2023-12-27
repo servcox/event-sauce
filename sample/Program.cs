@@ -1,4 +1,4 @@
-﻿using EventStore = ServcoX.EventSauce.EventStore;
+﻿using ServcoX.EventSauce;
 
 const String connectionString = "UseDevelopmentStorage=true;";
 const String streamType = "CAKE";
