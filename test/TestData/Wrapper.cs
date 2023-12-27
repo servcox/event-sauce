@@ -110,7 +110,6 @@ public sealed class Wrapper : IDisposable
             .UseStreamTable(streamTableName)
             .UseEventTable(eventTableName)
             .UseProjectionTable(projectionTableName)
-            .UseIndexTable(indexTableName)
             .DefineProjection<TestProjection>(ProjectionVersion, builder => builder
                 .On<TestAEvent>((prj, body, evt) => prj.A++)
                 .On<TestBEvent>((prj, body, evt) => prj.B++)

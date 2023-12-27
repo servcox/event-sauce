@@ -2,11 +2,15 @@ using System.Runtime.Serialization;
 using Azure;
 using Azure.Data.Tables;
 
+// ReSharper disable ClassNeverInstantiated.Global
 // ReSharper disable UnusedMember.Global
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace ServcoX.EventSauce.TableRecords;
 
+/// <remarks>
+/// This record ignores the index columns. `TableEntity` is most often used instead to access those. This is used for tests and as a notepad of what fields are actually used.
+/// </remarks>
 public sealed class ProjectionRecord : ITableEntity
 {
     [IgnoreDataMember]
@@ -24,7 +28,7 @@ public sealed class ProjectionRecord : ITableEntity
     }
 
     public String Body { get; set; } = String.Empty;
-    
+
     public UInt64 Version { get; set; }
 
     /// <remarks>

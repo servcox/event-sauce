@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Azure.Data.Tables;
 using FluentAssertions;
 using ServcoX.EventSauce.TableRecords;
 using ServcoX.EventSauce.Tests.TestData;
@@ -8,6 +9,24 @@ namespace ServcoX.EventSauce.Tests;
 
 public class EventStoreProjectionTests
 {
+    [Fact]
+    public void CanNotUseReservedIndexName() => Assert.Throws<InvalidIndexName>(() =>
+    {
+        new EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
+            .DefineProjection<TestProjection>(Wrapper.ProjectionVersion, builder => builder
+                .Index(nameof(ProjectionRecord.ProjectionId), prj => prj.A.ToString())
+            ));
+    });
+
+    [Fact]
+    public void CanNotUseTooLongIndexName() => Assert.Throws<InvalidIndexName>(() =>
+    {
+        new EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
+            .DefineProjection<TestProjection>(Wrapper.ProjectionVersion, builder => builder
+                .Index(new('a', 256), prj => prj.A.ToString())
+            ));
+    });
+
     [Fact]
     public async Task CanReadProjection()
     {
@@ -21,9 +40,10 @@ public class EventStoreProjectionTests
 
         var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
 
-        var record = wrapper.ProjectionTable.GetEntity<ProjectionRecord>(projectionId, Wrapper.StreamId1).Value;
-        record.Version.Should().Be(3);
-        record.Body.Should().Be(JsonSerializer.Serialize(prj));
+        var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1).Value;
+        record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(3);
+        record.GetString(nameof(ProjectionRecord.Body)).Should().Be(JsonSerializer.Serialize(prj));
+        record.GetString("A").Should().Be("1"); // Indexed value
 
         await wrapper.Sut.WriteStream(Wrapper.StreamId1, new TestAEvent("a"), Wrapper.UserId, CancellationToken.None);
 
@@ -33,8 +53,9 @@ public class EventStoreProjectionTests
         prj.Any.Should().Be(4);
         prj.Other.Should().Be(1);
 
-        record = wrapper.ProjectionTable.GetEntity<ProjectionRecord>(projectionId, Wrapper.StreamId1).Value;
-        record.Version.Should().Be(4);
-        record.Body.Should().Be(JsonSerializer.Serialize(prj));
+        record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1).Value;
+        record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(4);
+        record.GetString(nameof(ProjectionRecord.Body)).Should().Be(JsonSerializer.Serialize(prj));
+        record.GetString("A").Should().Be("2");
     }
 }

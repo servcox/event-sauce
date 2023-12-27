@@ -12,7 +12,6 @@ public sealed class BaseConfiguration
     public String StreamTableName { get; set; } = "stream";
     public String EventTableName { get; set; } = "event";
     public String ProjectionTableName { get; set; } = "projection";
-    public String IndexTableName { get; set; } = "index";
     public Boolean ShouldCreateTableIfMissing { get; set; }
 
     public Dictionary<Type, IProjectionBuilder> Projections { get; } = new();
@@ -38,11 +37,6 @@ public sealed class BaseConfiguration
     public BaseConfiguration UseProjectionTable(String name)
     {
         ProjectionTableName = name;
-        return this;
-    }
-    public BaseConfiguration UseIndexTable(String name)
-    {
-        IndexTableName = name;
         return this;
     }
 

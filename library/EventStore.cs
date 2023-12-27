@@ -14,7 +14,6 @@ public sealed class EventStore
     private readonly StreamTable _streamTable;
     private readonly EventTable _eventTable;
     private readonly ProjectionTable _projectionTable;
-    private readonly IndexTable _indexTable;
     private readonly EventTypeResolver _eventTypeResolver = new();
     private readonly BaseConfiguration _configuration;
 
@@ -24,17 +23,17 @@ public sealed class EventStore
         _configuration = new();
         configure?.Invoke(_configuration);
 
+        ThrowExceptionOnBadIndexName();
+
         _streamTable = new(new(connectionString, _configuration.StreamTableName));
         _eventTable = new(new(connectionString, _configuration.EventTableName));
         _projectionTable = new(new(connectionString, _configuration.ProjectionTableName));
-        _indexTable = new(new(connectionString, _configuration.IndexTableName));
 
         if (_configuration.ShouldCreateTableIfMissing)
         {
             _streamTable.CreateUnderlyingIfNotExist();
             _eventTable.CreateUnderlyingIfNotExist();
             _projectionTable.CreateUnderlyingIfNotExist();
-            _indexTable.CreateUnderlyingIfNotExist();
         }
     }
 
@@ -136,19 +135,23 @@ public sealed class EventStore
 
         var record = await _projectionTable.TryRead(builder.Id, streamId, cancellationToken).ConfigureAwait(false) ?? new()
         {
-            ProjectionId = builder.Id,
-            StreamId = streamId,
+            [nameof(ProjectionRecord.PartitionKey)] = builder.Id,
+            [nameof(ProjectionRecord.RowKey)] = streamId,
         };
-        var isNewProjection = String.IsNullOrEmpty(record.Body);
-        var projection = isNewProjection ? new() : JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
-        var nextVersion = isNewProjection ? 0 : record.Version + 1;
+        var isNewProjection = String.IsNullOrEmpty(record.GetString(nameof(ProjectionRecord.Body)));
+        var projection = isNewProjection
+            ? new()
+            : JsonSerializer.Deserialize<TProjection>(record.GetString(nameof(ProjectionRecord.Body)), _configuration.SerializationOptions) ?? throw new NeverNullException();
+        var nextVersion = isNewProjection ? 0 : (UInt64)(record.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) + 1;
         var events = ReadStream(streamId, nextVersion).ToList();
 
         if (events.Count != 0)
         {
             ApplyEvents(projection, events, builder);
-            record.Body = JsonSerializer.Serialize(projection, _configuration.SerializationOptions);
-            record.Version = events.Last().Version;
+            record[nameof(ProjectionRecord.Body)] = JsonSerializer.Serialize(projection, _configuration.SerializationOptions);
+            record[nameof(ProjectionRecord.Version)] = events.Last().Version;
+
+            UpdateIndexes(builder, projection, record);
 
             try
             {
@@ -160,22 +163,6 @@ public sealed class EventStore
                 {
                     await _projectionTable.Update(record, cancellationToken).ConfigureAwait(false);
                 }
-
-                foreach (var index in builder.Indexes)
-                {
-                    var field = index.Key;
-                    var getter = (Func<TProjection, String>)index.Value;
-                    var value = getter.Invoke(projection);
-                    var projectionId = builder.Id;
-
-                    await _indexTable.CreateOrUpdate(new()
-                    {
-                        ProjectionId = projectionId,
-                        Field = field,
-                        Value = value,
-                        StreamId = streamId,
-                    }, cancellationToken);
-                }
             }
             catch (TableTransactionFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists") // If another writer beat us TODO: Is this the correct exception for Update?
             {
@@ -184,8 +171,7 @@ public sealed class EventStore
 
         return projection;
     }
-
-
+    
     // TODO
     // public Task<TProjection> ListProjections<TProjection>() where TProjection : new() =>
     //     ListProjections<TProjection>(new Dictionary<String, String>());
@@ -203,8 +189,19 @@ public sealed class EventStore
     //  * Query on index
     //  * Background refresh index
 
-    // ProjectionId|Field|Value, StreamId
+    
+    private static void UpdateIndexes<TProjection>(IProjectionBuilder builder, TProjection projection, TableEntity record) where TProjection : new()
+    {
+        foreach (var index in builder.Indexes)
+        {
+            var field = index.Key;
+            var getter = (Func<TProjection, String>)index.Value;
+            var value = getter.Invoke(projection);
 
+            record[field] = value;
+        }
+    }
+    
     private void ApplyEvents<TProjection>(TProjection projection, List<Event> events, IProjectionBuilder builder) where TProjection : new()
     {
         foreach (var evt in events)
@@ -232,6 +229,19 @@ public sealed class EventStore
             }
 
             foreach (var handler in builder.PromiscuousHandlers) ((Action<TProjection, Event>)handler)(projection, evt);
+        }
+    }
+
+    private void ThrowExceptionOnBadIndexName()
+    {
+        var prohibitedIndexNames = typeof(ProjectionRecord).GetMembers().Select(field => field.Name.ToUpperInvariant()).ToList();
+        foreach (var projection in _configuration.Projections)
+        {
+            foreach (var index in projection.Value.Indexes)
+            {
+                if (prohibitedIndexNames.Contains(index.Key.ToUpperInvariant())) throw new InvalidIndexName($"Projection '{projection.Key}' cannot have index using reserved name '{index.Key}'");
+                if (index.Key.Length > 255) throw new InvalidIndexName($"Projection '{projection.Key}' has index with name longer than 255 characters");
+            }
         }
     }
 }
