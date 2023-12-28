@@ -81,7 +81,7 @@ public sealed class Wrapper : IDisposable
     public TableClient StreamTable { get; }
     public TableClient EventTable { get; }
     public TableClient ProjectionTable { get; }
-    public EventStore Sut { get; }
+    public IEventStore Sut { get; }
 
     public Wrapper(Action<BaseConfiguration>? overwriteBuilder = null)
     {
@@ -101,7 +101,7 @@ public sealed class Wrapper : IDisposable
         ProjectionTable = new(DevelopmentConnectionString, projectionTableName);
         ProjectionTable.Create();
 
-        Sut = new(DevelopmentConnectionString, cfg =>
+        Sut = new EventStore(DevelopmentConnectionString, cfg =>
         {
             cfg
                 .UseStreamTable(streamTableName)

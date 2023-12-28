@@ -99,5 +99,5 @@ public interface IEventStore
     /// <summary>
     /// Refresh projections (and their indexes) for a given stream.
     /// </summary>
-    Task TryRefreshProjections(String streamId, CancellationToken cancellationToken = default);
+    Task RefreshProjections(String streamId, CancellationToken cancellationToken = default);
 }
