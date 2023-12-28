@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Azure.Data.Tables;
 using FluentAssertions;
 using ServcoX.EventSauce.TableRecords;
@@ -30,37 +29,52 @@ public class EventStoreProjectionTests
     });
 
     [Fact]
-    public async Task CanRead()
+    public async Task CanRefreshProjection()
     {
         using var wrapper = new Wrapper();
+        await wrapper.Sut.TryRefreshProjections(Wrapper.StreamId1);
 
+        var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
+        var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1).Value;
+        record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(3);
+        record.GetString("A").Should().Be("1"); // Indexed value
+    }
+
+    [Fact]
+    public async Task CanAutoRefreshOnWrite()
+    {
+        using var wrapper = new Wrapper(cfg => cfg.RefreshProjectionsAfterWriting());
+        await wrapper.Sut.WriteEvents(Wrapper.StreamId2, new TestAEvent("a"), Wrapper.UserId);
+        
+        var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
+        var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId2).Value;
+        record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(1);
+        record.GetString("A").Should().Be("1"); // Indexed value
+    }
+
+    [Fact]
+    public async Task CanAutoRefreshOnRead()
+    {
+        using var wrapper = new Wrapper(cfg => cfg.RefreshProjectionBeforeReading());
         var prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1);
         prj.Id.Should().Be(Wrapper.StreamId1);
         prj.A.Should().Be(1);
         prj.B.Should().Be(1);
         prj.Any.Should().Be(3);
         prj.Other.Should().Be(1);
+    }
 
-        var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
-
-        var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1).Value;
-        record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(3);
-        record.GetString(nameof(ProjectionRecord.Body)).Should().Be(JsonSerializer.Serialize(prj));
-        record.GetString("A").Should().Be("1"); // Indexed value
-
-        await wrapper.Sut.WriteEvents(Wrapper.StreamId1, new TestAEvent("a"), Wrapper.UserId);
-
-        prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1);
+    [Fact]
+    public async Task CanRead()
+    {
+        using var wrapper = new Wrapper();
+        await wrapper.Sut.TryRefreshProjections(Wrapper.StreamId1);
+        var prj = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1);
         prj.Id.Should().Be(Wrapper.StreamId1);
-        prj.A.Should().Be(2);
+        prj.A.Should().Be(1);
         prj.B.Should().Be(1);
-        prj.Any.Should().Be(4);
+        prj.Any.Should().Be(3);
         prj.Other.Should().Be(1);
-
-        record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1).Value;
-        record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(4);
-        record.GetString(nameof(ProjectionRecord.Body)).Should().Be(JsonSerializer.Serialize(prj));
-        record.GetString("A").Should().Be("2");
     }
 
     [Fact]
@@ -70,7 +84,7 @@ public class EventStoreProjectionTests
         await wrapper.Sut.ArchiveStream(Wrapper.StreamId1);
         await Assert.ThrowsAsync<NotFoundException>(async () => await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1));
     }
-    
+
     [Fact]
     public async Task CanNotReadMissing()
     {
@@ -82,10 +96,11 @@ public class EventStoreProjectionTests
     public async Task CanTryRead()
     {
         using var wrapper = new Wrapper();
+        await wrapper.Sut.TryRefreshProjections(Wrapper.StreamId1);
         var projection = await wrapper.Sut.ReadProjection<TestProjection>(Wrapper.StreamId1);
         projection.Id.Should().Be(Wrapper.StreamId1);
     }
-    
+
     [Fact]
     public async Task CanTryReadMissing()
     {
@@ -131,11 +146,11 @@ public class EventStoreProjectionTests
         await wrapper.Sut.TryRefreshProjections(Wrapper.StreamId1);
         wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
     }
-    
+
     [Fact]
     public async Task CanAutomaticallyRefresh()
     {
-        using var wrapper = new Wrapper(TimeSpan.FromSeconds(1));
+        using var wrapper = new Wrapper(cfg=>cfg.RefreshProjectionsEvery(TimeSpan.FromSeconds(1)));
         await Task.Delay(TimeSpan.FromSeconds(1.1));
         wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
     }

@@ -6,6 +6,7 @@ var store = new EventStore(connectionString, cfg => cfg
     .UseStreamTable("stream")
     .UseEventTable("event")
     .UseProjectionTable("projection")
+    .RefreshProjectionsAfterWriting()
     .DefineProjection<Cake>(streamType: streamType, version: 1, builder => builder
         .OnCreation((projection, id) => projection.Id = id)
         .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)

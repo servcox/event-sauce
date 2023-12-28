@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Azure.Data.Tables;
+using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.TableRecords;
 
 namespace ServcoX.EventSauce.Tests.TestData;
@@ -82,7 +83,7 @@ public sealed class Wrapper : IDisposable
     public TableClient ProjectionTable { get; }
     public EventStore Sut { get; }
 
-    public Wrapper(TimeSpan? projectionRefreshInterval =null)
+    public Wrapper(Action<BaseConfiguration>? overwriteBuilder = null)
     {
         var postfix = Guid.NewGuid().ToString("N").ToUpperInvariant();
         var streamTableName = $"stream{postfix}";
@@ -100,20 +101,22 @@ public sealed class Wrapper : IDisposable
         ProjectionTable = new(DevelopmentConnectionString, projectionTableName);
         ProjectionTable.Create();
 
-        Sut = new(DevelopmentConnectionString, cfg => cfg
-            .UseStreamTable(streamTableName)
-            .UseEventTable(eventTableName)
-            .UseProjectionTable(projectionTableName)
-            .RefreshProjectionsEvery(projectionRefreshInterval ?? TimeSpan.FromHours(1))
-            .DefineProjection<TestProjection>(StreamType1, ProjectionVersion, builder => builder
-                .OnCreation((prj, id) => prj.Id = id)
-                .OnEvent<TestAEvent>((prj, _, _) => prj.A++)
-                .OnEvent<TestBEvent>((prj, _, _) => prj.B++)
-                .OnUnexpectedEvent((prj, _) => prj.Other++)
-                .OnAnyEvent((prj, _) => prj.Any++)
-                .Index("A", prj => prj.A.ToString())
-            )
-        );
+        Sut = new(DevelopmentConnectionString, cfg =>
+        {
+            cfg
+                .UseStreamTable(streamTableName)
+                .UseEventTable(eventTableName)
+                .UseProjectionTable(projectionTableName)
+                .DefineProjection<TestProjection>(StreamType1, ProjectionVersion, builder => builder
+                    .OnCreation((prj, id) => prj.Id = id)
+                    .OnEvent<TestAEvent>((prj, _, _) => prj.A++)
+                    .OnEvent<TestBEvent>((prj, _, _) => prj.B++)
+                    .OnUnexpectedEvent((prj, _) => prj.Other++)
+                    .OnAnyEvent((prj, _) => prj.Any++)
+                    .Index("A", prj => prj.A.ToString())
+                );
+            overwriteBuilder?.Invoke(cfg);
+        });
     }
 
     public void Dispose()

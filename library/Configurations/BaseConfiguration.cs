@@ -54,6 +54,20 @@ public sealed class BaseConfiguration
         ProjectionRefreshInterval = interval;
         return this;
     }
+    
+    public Boolean ShouldRefreshProjectionsAfterWriting { get; set; }
+    public BaseConfiguration RefreshProjectionsAfterWriting()
+    {
+        ShouldRefreshProjectionsAfterWriting = true;
+        return this;
+    }
+    
+    public Boolean ShouldRefreshProjectionsBeforeReading { get; set; }
+    public BaseConfiguration RefreshProjectionBeforeReading()
+    {
+        ShouldRefreshProjectionsBeforeReading = true;
+        return this;
+    }
 
     public Dictionary<Type, IProjectionBuilder> Projections { get; } = new();
 

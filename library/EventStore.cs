@@ -171,6 +171,7 @@ public sealed class EventStore : IDisposable, IEventStore
 
         await _eventTable.CreateMany(eventRecords, cancellationToken).ConfigureAwait(false); // Must be first to avoid concurrency issues
         await _streamTable.Update(streamRecord, cancellationToken).ConfigureAwait(false);
+        if(_configuration.ShouldRefreshProjectionsAfterWriting) await TryRefreshProjections(streamRecord, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -198,7 +199,7 @@ public sealed class EventStore : IDisposable, IEventStore
     /// <exception cref="StreamArchivedException"></exception>
     public async Task<TProjection?> TryReadProjection<TProjection>(String streamId, CancellationToken cancellationToken = default) where TProjection : new()
     {
-        await TryRefreshProjections(streamId, cancellationToken).ConfigureAwait(false);
+        if (_configuration.ShouldRefreshProjectionsBeforeReading) await TryRefreshProjections(streamId, cancellationToken).ConfigureAwait(false);
 
         var projectionType = typeof(TProjection);
         if (!_configuration.Projections.TryGetValue(projectionType, out var builder)) throw new NotFoundException($"No projection for '{projectionType.FullName}' defined");
@@ -256,6 +257,9 @@ public sealed class EventStore : IDisposable, IEventStore
         if (streamRecord is null) return;
         await TryRefreshProjections(new List<StreamRecord> { streamRecord }, cancellationToken).ConfigureAwait(false);
     }
+
+    private Task TryRefreshProjections(StreamRecord streamRecord, CancellationToken cancellationToken = default) =>
+        TryRefreshProjections(new List<StreamRecord>() { streamRecord }, cancellationToken);
 
     private async Task TryRefreshProjections(IList<StreamRecord> streamRecords, CancellationToken cancellationToken = default)
     {
