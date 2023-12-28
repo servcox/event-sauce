@@ -5,6 +5,8 @@ Its for when you want to use event sourcing but your needs (or budget) aren't de
 It's performant a modest scale, and since it backs on Azure Table Storage it's cost is tiny compared to just about 
 everything else. It's also simple, and allows you to build out event sourcing in a way that suits you.
 
+# Installation
+Grab it from NuGet from `dotnet add package ServcoX.EventSauce` or `dotnet add package ServcoX.EventSauce.DependencyInjection` for DI support.
 # Basic usage
 
 Define your events like this:
@@ -17,6 +19,11 @@ public readonly record struct CutCake(Int32 Slices) : IEventBody;
 Connect to your event store like this:
 ```c#
 var eventStore = new EventStore("=== connection string goes here ===");
+```
+
+Or if you're using Microsoft DI, then you can use this:
+```c#
+builder.Services.AddEventSauce("=== connection string goes here ===");
 ```
 
 Create a stream and write events like this:
