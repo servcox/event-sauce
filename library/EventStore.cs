@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Azure;
 using Azure.Data.Tables;
 using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.TableRecords;
@@ -221,13 +222,10 @@ public sealed class EventStore : IDisposable, IEventStore
                     var projectionRecord = await _projectionTable.ReadOrNewGeneric(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
                     var projectionBody = projectionRecord.GetString(nameof(ProjectionRecord.Body));
                     var isNewProjection = String.IsNullOrEmpty(projectionBody);
-                    var projection = (isNewProjection
-                        ? Activator.CreateInstance(projectionType)
-                        : JsonSerializer.Deserialize(projectionBody, projectionType, _configuration.SerializationOptions)) ?? throw new NeverNullException();
-                    var nextVersion = isNewProjection
-                        ? 0
-                        : (UInt64)(projectionRecord.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) +
-                          1; // TODO: Possible to only read events once, even when involved in multiple projections
+                    var projection = (isNewProjection ? Activator.CreateInstance(projectionType) : JsonSerializer.Deserialize(projectionBody, projectionType, _configuration.SerializationOptions)) ??
+                                     throw new NeverNullException();
+                    var nextVersion = isNewProjection ? 0 : (UInt64)(projectionRecord.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) + 1;
+                    // TODO: Possible to only read events once, even when involved in multiple projections
                     var events = ReadEvents(streamId, nextVersion).ToList();
 
                     if (events.Count != 0)
@@ -237,19 +235,27 @@ public sealed class EventStore : IDisposable, IEventStore
                         projectionRecord[nameof(ProjectionRecord.Version)] = events.Last().Version;
                         UpdateIndexes(builder, projection, projectionRecord);
 
-                        try
+                        if (isNewProjection)
                         {
-                            if (isNewProjection)
+                            try
                             {
                                 await _projectionTable.CreateGeneric(projectionRecord, cancellationToken).ConfigureAwait(false);
                             }
-                            else
+                            catch (RequestFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
+                            {
+                                // Another projection refresh beat us - nothing to do
+                            }
+                        }
+                        else
+                        {
+                            try
                             {
                                 await _projectionTable.UpdateGeneric(projectionRecord, cancellationToken).ConfigureAwait(false);
                             }
-                        }
-                        catch (TableTransactionFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists") // If another writer beat us TODO: Is this the correct exception for Update?
-                        {
+                            catch (RequestFailedException ex) when (ex.ErrorCode == "UpdateConditionNotSatisfied")
+                            {
+                                // Another projection refresh beat us - nothing to do
+                            }
                         }
                     }
                 }
