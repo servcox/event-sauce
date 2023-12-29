@@ -7,8 +7,8 @@ everything else. It's also simple, and allows you to build out event sourcing in
 
 # Installation
 Grab it from NuGet from `dotnet add package ServcoX.EventSauce` or `dotnet add package ServcoX.EventSauce.DependencyInjection` for DI support.
-# Basic usage
 
+# Basic usage
 Define your events like this:
 ```c#
 public readonly record struct BakedCake : IEventBody;
