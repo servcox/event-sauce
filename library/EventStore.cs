@@ -188,6 +188,27 @@ public sealed class EventStore : IDisposable, IEventStore
         return records.Select(record => JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions)!);
     }
 
+    public async Task<DateTimeOffset> RefreshAllProjections(DateTimeOffset? updatedSince = null, CancellationToken cancellationToken = default)
+    {
+        var streamTypesWithProjections = _configuration.Projections
+            .Select(a => a.Value.StreamType)
+            .Distinct()
+            .ToList();
+
+        var streams = streamTypesWithProjections
+            .SelectMany(streamType => _streamTable.List(streamType, updatedSince: updatedSince))
+            .ToList();
+
+        await TryRefreshProjections(streams, cancellationToken).ConfigureAwait(false);
+
+        var timestamps = streams
+            .Select(stream => stream.Timestamp)
+            .OfType<DateTimeOffset>()
+            .ToList();
+        var maxTimestamp = timestamps.Count > 0 ? timestamps.Max() : new();
+        return maxTimestamp;
+    }
+
     public async Task RefreshProjections(String streamId, CancellationToken cancellationToken = default)
     {
         var streamRecord = await _streamTable.TryRead(streamId, cancellationToken).ConfigureAwait(false);
@@ -355,20 +376,7 @@ public sealed class EventStore : IDisposable, IEventStore
             var lastRun = new DateTimeOffset();
             _projectionRefreshTimer.Elapsed += async (_, _) =>
             {
-                var streamTypesWithProjections = _configuration.Projections
-                    .Select(a => a.Value.StreamType)
-                    .Distinct()
-                    .ToList();
-
-                var streams = streamTypesWithProjections
-                    .SelectMany(streamType => _streamTable.List(streamType, updatedSince: lastRun))
-                    .ToList();
-
-                await TryRefreshProjections(streams).ConfigureAwait(false);
-                lastRun = streams
-                    .Select(stream => stream.Timestamp)
-                    .OfType<DateTimeOffset>()
-                    .Max();
+                lastRun = await RefreshAllProjections(lastRun).ConfigureAwait(false);
                 _projectionRefreshTimer.Start();
             };
             _projectionRefreshTimer.AutoReset = false;

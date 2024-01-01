@@ -1,3 +1,4 @@
+using Azure;
 using Azure.Data.Tables;
 using FluentAssertions;
 using ServcoX.EventSauce.TableRecords;
@@ -29,6 +30,41 @@ public class EventStoreProjectionTests
     });
 
     [Fact]
+    public async Task CanRefreshAllProjection()
+    {
+        using var wrapper = new Wrapper();
+        await wrapper.Sut.RefreshAllProjections();
+
+        var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
+        var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1).Value;
+        record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(3);
+        record.GetString("A").Should().Be("1");
+    }
+
+    [Fact]
+    public async Task CanRefreshAllProjectionSince()
+    {
+        using var wrapper = new Wrapper();
+        var maxTimestamp = await wrapper.Sut.RefreshAllProjections(DateTime.UtcNow.AddSeconds(-10));
+        maxTimestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+
+        var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
+        var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1).Value;
+        record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(3);
+        record.GetString("A").Should().Be("1");
+    }
+
+    [Fact]
+    public async Task CanNotRefreshAllProjectionSinceFuture()
+    {
+        using var wrapper = new Wrapper();
+        await wrapper.Sut.RefreshAllProjections(DateTime.UtcNow.AddSeconds(10));
+
+        var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
+        Assert.Throws<RequestFailedException>(() => wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1));
+    }
+
+    [Fact]
     public async Task CanRefreshProjection()
     {
         using var wrapper = new Wrapper();
@@ -45,7 +81,7 @@ public class EventStoreProjectionTests
     {
         using var wrapper = new Wrapper(cfg => cfg.RefreshProjectionsAfterWriting());
         await wrapper.Sut.WriteEvents(Wrapper.StreamId2, new TestAEvent("a"), Wrapper.UserId);
-        
+
         var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
         var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId2).Value;
         record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(1);
@@ -150,7 +186,7 @@ public class EventStoreProjectionTests
     [Fact]
     public async Task CanAutomaticallyRefresh()
     {
-        using var wrapper = new Wrapper(cfg=>cfg.RefreshProjectionsEvery(TimeSpan.FromSeconds(1)));
+        using var wrapper = new Wrapper(cfg => cfg.RefreshProjectionsEvery(TimeSpan.FromSeconds(1)));
         await Task.Delay(TimeSpan.FromSeconds(1.1));
         wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
     }

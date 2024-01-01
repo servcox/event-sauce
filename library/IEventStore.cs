@@ -97,6 +97,11 @@ public interface IEventStore
     IEnumerable<TProjection> ListProjections<TProjection>(IDictionary<String, String> query) where TProjection : new();
 
     /// <summary>
+    /// Refresh all projections that have changed, optionally since a given time.
+    /// </summary>
+    Task<DateTimeOffset> RefreshAllProjections(DateTimeOffset? updatedSince = null, CancellationToken cancellationToken = default);
+    
+    /// <summary>
     /// Refresh projections (and their indexes) for a given stream.
     /// </summary>
     Task RefreshProjections(String streamId, CancellationToken cancellationToken = default);
