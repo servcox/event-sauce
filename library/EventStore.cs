@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Azure;
 using Azure.Data.Tables;
@@ -190,22 +191,31 @@ public sealed class EventStore : IDisposable, IEventStore
 
     public async Task<DateTimeOffset> RefreshAllProjections(DateTimeOffset? updatedSince = null, CancellationToken cancellationToken = default)
     {
+        Trace.WriteLine("RefreshAll started");
+
         var streamTypesWithProjections = _configuration.Projections
-            .Select(a => a.Value.StreamType)
+            .Select(p => p.Value.StreamType)
             .Distinct()
             .ToList();
 
-        var streams = streamTypesWithProjections
-            .SelectMany(streamType => _streamTable.List(streamType, updatedSince: updatedSince))
-            .ToList();
+        var maxTimestamp = new DateTimeOffset();
+        foreach (var streamType in streamTypesWithProjections)
+        {
+            foreach (var page in _streamTable.List(streamType, updatedSince: updatedSince).AsPages(pageSizeHint: 100))
+            {
+                var stopwatch = Stopwatch.StartNew();
+                foreach (var stream in page.Values)
+                {
+                    await TryRefreshProjections(stream, cancellationToken).ConfigureAwait(false);
+                    if (stream.Timestamp > maxTimestamp && stream.Timestamp.HasValue) maxTimestamp = stream.Timestamp.Value;
+                }
 
-        await TryRefreshProjections(streams, cancellationToken).ConfigureAwait(false);
+                Trace.WriteLine($"Refreshed projections of {page.Values.Count} '{streamType}' streams in {stopwatch.ElapsedMilliseconds}ms");
+            }
+        }
 
-        var timestamps = streams
-            .Select(stream => stream.Timestamp)
-            .OfType<DateTimeOffset>()
-            .ToList();
-        var maxTimestamp = timestamps.Count > 0 ? timestamps.Max() : new();
+        Trace.WriteLine($"RefreshAll completed, with max timestamp of {maxTimestamp}");
+
         return maxTimestamp;
     }
 
@@ -217,7 +227,7 @@ public sealed class EventStore : IDisposable, IEventStore
     }
 
     private Task TryRefreshProjections(StreamRecord streamRecord, CancellationToken cancellationToken = default) =>
-        TryRefreshProjections(new List<StreamRecord>() { streamRecord }, cancellationToken);
+        TryRefreshProjections(new List<StreamRecord> { streamRecord }, cancellationToken);
 
     private async Task TryRefreshProjections(IList<StreamRecord> streamRecords, CancellationToken cancellationToken = default)
     {
@@ -237,46 +247,45 @@ public sealed class EventStore : IDisposable, IEventStore
                 if (streamRecord.IsArchived)
                 {
                     await _projectionTable.TryDelete(projectionId, streamRecord.StreamId, cancellationToken).ConfigureAwait(false);
+                    continue;
                 }
-                else
+
+                var projectionRecord = await _projectionTable.ReadOrNewGeneric(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
+                var projectionBody = projectionRecord.GetString(nameof(ProjectionRecord.Body));
+                var isNewProjection = String.IsNullOrEmpty(projectionBody);
+                var projection = (isNewProjection ? Activator.CreateInstance(projectionType) : JsonSerializer.Deserialize(projectionBody, projectionType, _configuration.SerializationOptions)) ??
+                                 throw new NeverNullException();
+                var nextVersion = isNewProjection ? 0 : (UInt64)(projectionRecord.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) + 1;
+                // TODO: Possible to only read events once, even when involved in multiple projections
+                var events = ReadEvents(streamId, nextVersion).ToList();
+
+                if (events.Count != 0)
                 {
-                    var projectionRecord = await _projectionTable.ReadOrNewGeneric(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
-                    var projectionBody = projectionRecord.GetString(nameof(ProjectionRecord.Body));
-                    var isNewProjection = String.IsNullOrEmpty(projectionBody);
-                    var projection = (isNewProjection ? Activator.CreateInstance(projectionType) : JsonSerializer.Deserialize(projectionBody, projectionType, _configuration.SerializationOptions)) ??
-                                     throw new NeverNullException();
-                    var nextVersion = isNewProjection ? 0 : (UInt64)(projectionRecord.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) + 1;
-                    // TODO: Possible to only read events once, even when involved in multiple projections
-                    var events = ReadEvents(streamId, nextVersion).ToList();
+                    ApplyEvents(streamId, projection, events, builder, isNewProjection);
+                    projectionRecord[nameof(ProjectionRecord.Body)] = JsonSerializer.Serialize(projection, _configuration.SerializationOptions);
+                    projectionRecord[nameof(ProjectionRecord.Version)] = events.Last().Version;
+                    UpdateIndexes(builder, projection, projectionRecord);
 
-                    if (events.Count != 0)
+                    if (isNewProjection)
                     {
-                        ApplyEvents(streamId, projection, events, builder, isNewProjection);
-                        projectionRecord[nameof(ProjectionRecord.Body)] = JsonSerializer.Serialize(projection, _configuration.SerializationOptions);
-                        projectionRecord[nameof(ProjectionRecord.Version)] = events.Last().Version;
-                        UpdateIndexes(builder, projection, projectionRecord);
-
-                        if (isNewProjection)
+                        try
                         {
-                            try
-                            {
-                                await _projectionTable.CreateGeneric(projectionRecord, cancellationToken).ConfigureAwait(false);
-                            }
-                            catch (RequestFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
-                            {
-                                // Another projection refresh beat us - nothing to do
-                            }
+                            await _projectionTable.CreateGeneric(projectionRecord, cancellationToken).ConfigureAwait(false);
                         }
-                        else
+                        catch (RequestFailedException ex) when (ex.ErrorCode == "EntityAlreadyExists")
                         {
-                            try
-                            {
-                                await _projectionTable.UpdateGeneric(projectionRecord, cancellationToken).ConfigureAwait(false);
-                            }
-                            catch (RequestFailedException ex) when (ex.ErrorCode == "UpdateConditionNotSatisfied")
-                            {
-                                // Another projection refresh beat us - nothing to do
-                            }
+                            // Another projection refresh beat us - nothing to do
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            await _projectionTable.UpdateGeneric(projectionRecord, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (RequestFailedException ex) when (ex.ErrorCode == "UpdateConditionNotSatisfied")
+                        {
+                            // Another projection refresh beat us - nothing to do
                         }
                     }
                 }
@@ -373,7 +382,7 @@ public sealed class EventStore : IDisposable, IEventStore
         if (_configuration.ProjectionRefreshInterval.HasValue)
         {
             _projectionRefreshTimer = new(_configuration.ProjectionRefreshInterval.Value.TotalMilliseconds);
-            var lastRun = new DateTimeOffset();
+            DateTimeOffset? lastRun = null;
             _projectionRefreshTimer.Elapsed += async (_, _) =>
             {
                 lastRun = await RefreshAllProjections(lastRun).ConfigureAwait(false);
