@@ -1,3 +1,4 @@
+using System.Globalization;
 using Azure;
 using Azure.Data.Tables;
 using ServcoX.EventSauce.TableRecords;
@@ -6,21 +7,19 @@ namespace ServcoX.EventSauce.Tables;
 
 public sealed class StreamTable(TableClient table)
 {
-    private readonly DateTime _minTimestamp = new (2000,1,1);
-    
+    private readonly DateTime _minTimestamp = new(2000, 1, 1);
+
     public void CreateUnderlyingIfNotExist() =>
         table.CreateIfNotExists();
 
-    public Pageable<StreamRecord> List(String streamType, DateTimeOffset updatedSince = default, Boolean includeArchived = false)
+    public Pageable<StreamRecord> List(String streamType, DateTimeOffset updatedSince = default)
     {
+        if (streamType is null) throw new ArgumentNullException(nameof(streamType));
         if (updatedSince < _minTimestamp) updatedSince = _minTimestamp; // Azure table storage doesn't like heaps-old timestamps
-        
-        return table
-            .Query<StreamRecord>(stream =>
-                stream.Type.Equals(streamType.ToUpperInvariant(), StringComparison.OrdinalIgnoreCase) &&
-                (stream.Timestamp == null || stream.Timestamp >= updatedSince) &&
-                (!stream.IsArchived || includeArchived)
-            );
+
+        // Queries using lambda syntax get complicated due to OData's limitations
+        var query = $"Type eq '{streamType.ToUpperInvariant().Replace("'", "''")}' and Timestamp ge DateTime'{updatedSince.ToString("o", CultureInfo.InvariantCulture)}'";
+        return table.Query<StreamRecord>(query);
     }
 
     public async Task Create(StreamRecord record, CancellationToken cancellationToken)
@@ -41,7 +40,7 @@ public sealed class StreamTable(TableClient table)
         if (!streamRecordWrapper.HasValue || streamRecordWrapper.Value is null) throw new NotFoundException();
         return streamRecordWrapper.Value;
     }
-    
+
     public async Task<StreamRecord?> TryRead(String streamId, CancellationToken cancellationToken = default)
     {
         var streamRecordWrapper = await table.GetEntityIfExistsAsync<StreamRecord>(streamId, streamId, cancellationToken: cancellationToken).ConfigureAwait(false);
