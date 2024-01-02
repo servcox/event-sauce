@@ -38,33 +38,26 @@ public class EventStoreProjectionRefreshTests
     }
     
     [Fact]
-    public async Task CanRefreshAllProjection()
+    public async Task CanRefreshOnStartup()
+    {
+        using var wrapper = new Wrapper(cfg => cfg.RefreshProjectionsOnStartup());
+        var maxTimestamp = await wrapper.Sut.RefreshAllProjections();
+        maxTimestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+        wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
+    }
+    
+    [Fact]
+    public async Task CanManuallyRefreshAll()
     {
         using var wrapper = new Wrapper();
         var maxTimestamp = await wrapper.Sut.RefreshAllProjections();
         maxTimestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
         wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
     }
+    
 
     [Fact]
-    public async Task CanRefreshAllProjectionSince()
-    {
-        using var wrapper = new Wrapper();
-        var maxTimestamp = await wrapper.Sut.RefreshAllProjections(DateTime.UtcNow.AddSeconds(-10));
-        maxTimestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
-        wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
-    }
-
-    [Fact]
-    public async Task CanNotRefreshAllProjectionSinceFuture()
-    {
-        using var wrapper = new Wrapper();
-        await wrapper.Sut.RefreshAllProjections(DateTime.UtcNow.AddSeconds(10));
-        wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(0);
-    }
-
-    [Fact]
-    public async Task CanRefreshProjection()
+    public async Task CanRefreshSpecific()
     {
         using var wrapper = new Wrapper();
         await wrapper.Sut.RefreshProjections(Wrapper.StreamId1);
@@ -74,6 +67,23 @@ public class EventStoreProjectionRefreshTests
         var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1).Value;
         record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(3);
         record.GetString("A").Should().Be("1");
+    }
+
+    [Fact]
+    public async Task CanRefreshAllSince()
+    {
+        using var wrapper = new Wrapper();
+        var maxTimestamp = await wrapper.Sut.RefreshAllProjections(DateTime.UtcNow.AddSeconds(-10));
+        maxTimestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+        wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CanNotRefreshAllInFuture()
+    {
+        using var wrapper = new Wrapper();
+        await wrapper.Sut.RefreshAllProjections(DateTime.UtcNow.AddSeconds(10));
+        wrapper.Sut.ListProjections<TestProjection>().Count().Should().Be(0);
     }
 
     [Fact]

@@ -31,6 +31,8 @@ public sealed class EventStore : IDisposable, IEventStore
         _eventTable = new(new(connectionString, _configuration.EventTableName));
         _projectionTable = new(new(connectionString, _configuration.ProjectionTableName));
 
+        if (_configuration.ShouldRefreshProjectionsOnStartup) _ = RefreshAllProjections();
+        
         if (_configuration.ShouldCreateTableIfMissing)
         {
             _streamTable.CreateUnderlyingIfNotExist();
@@ -189,7 +191,7 @@ public sealed class EventStore : IDisposable, IEventStore
         return records.Select(record => JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions)!);
     }
 
-    public async Task<DateTimeOffset> RefreshAllProjections(DateTimeOffset? updatedSince = null, CancellationToken cancellationToken = default)
+    public async Task<DateTimeOffset> RefreshAllProjections(DateTimeOffset updatedSince = default, CancellationToken cancellationToken = default)
     {
         Trace.WriteLine("RefreshAll started");
 
@@ -382,7 +384,7 @@ public sealed class EventStore : IDisposable, IEventStore
         if (_configuration.ProjectionRefreshInterval.HasValue)
         {
             _projectionRefreshTimer = new(_configuration.ProjectionRefreshInterval.Value.TotalMilliseconds);
-            DateTimeOffset? lastRun = null;
+            var lastRun = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
             _projectionRefreshTimer.Elapsed += async (_, _) =>
             {
                 lastRun = await RefreshAllProjections(lastRun).ConfigureAwait(false);

@@ -99,7 +99,7 @@ public interface IEventStore
     /// <summary>
     /// Refresh all projections that have changed, optionally since a given time.
     /// </summary>
-    Task<DateTimeOffset> RefreshAllProjections(DateTimeOffset? updatedSince = null, CancellationToken cancellationToken = default);
+    Task<DateTimeOffset> RefreshAllProjections(DateTimeOffset updatedSince = default, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Refresh projections (and their indexes) for a given stream.

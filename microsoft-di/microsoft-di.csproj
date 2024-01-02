@@ -16,12 +16,12 @@
         <PackageIcon>servco.png</PackageIcon>
         <RepositoryUrl>https://github.com/servcox/event-sauce</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        <Version>2.4.3</Version>
+        <Version>2.4.4</Version>
     </PropertyGroup>
 
     <ItemGroup>
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
-      <PackageReference Include="ServcoX.EventSauce" Version="2.4.3" />
+      <PackageReference Include="ServcoX.EventSauce" Version="2.4.4" />
     </ItemGroup>
 
     <ItemGroup>
