@@ -203,7 +203,7 @@ public sealed class EventStore : IDisposable, IEventStore
         var maxTimestamp = new DateTimeOffset();
         foreach (var streamType in streamTypesWithProjections)
         {
-            foreach (var page in _streamTable.List(streamType, updatedSince: updatedSince).AsPages(pageSizeHint: 100))
+            foreach (var page in _streamTable.List(streamType, updatedSince: updatedSince).AsPages(pageSizeHint: 1000))
             {
                 var stopwatch = Stopwatch.StartNew();
                 foreach (var stream in page.Values)
