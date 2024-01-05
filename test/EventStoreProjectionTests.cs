@@ -1,9 +1,8 @@
 using Azure;
 using Azure.Data.Tables;
 using FluentAssertions;
-using ServcoX.EventSauce.TableRecords;
 using ServcoX.EventSauce.Tests.TestData;
-using ServcoX.EventSauce.Utilities;
+using ServcoX.EventSauce.V2.TableRecords;
 
 // ReSharper disable ObjectCreationAsStatement
 

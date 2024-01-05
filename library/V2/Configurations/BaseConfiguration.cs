@@ -1,11 +1,12 @@
 using System.Text.Json;
+using ServcoX.EventSauce.Exceptions;
 
 // ReSharper disable UnusedMethodReturnValue.Global
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Global
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 
-namespace ServcoX.EventSauce.Configurations;
+namespace ServcoX.EventSauce.V2.Configurations;
 
 public sealed class BaseConfiguration
 {

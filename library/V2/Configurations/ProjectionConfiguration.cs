@@ -1,10 +1,11 @@
 using System.Collections.ObjectModel;
-using ServcoX.EventSauce.Utilities;
+using ServcoX.EventSauce.Exceptions;
+using ServcoX.EventSauce.V2.Utilities;
 
 // ReSharper disable UnusedMethodReturnValue.Global
 // ReSharper disable ClassNeverInstantiated.Global
 
-namespace ServcoX.EventSauce.Configurations;
+namespace ServcoX.EventSauce.V2.Configurations;
 
 public sealed class ProjectionConfiguration<TProjection>(String streamType, UInt32 version) : IProjectionBuilder where TProjection : new()
 {

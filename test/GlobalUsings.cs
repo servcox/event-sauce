@@ -1,2 +1,2 @@
 global using Xunit;
-global using ServcoX.EventSauce.Exceptions;
+global using ServcoX.EventSauce.V2;

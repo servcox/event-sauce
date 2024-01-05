@@ -1,6 +1,6 @@
-using ServcoX.EventSauce.TableRecords;
+using ServcoX.EventSauce.V2.TableRecords;
 
-namespace ServcoX.EventSauce;
+namespace ServcoX.EventSauce.V2;
 
 public record struct Event(String StreamId, UInt64 Version, String Type, IEventBody? Body, String CreatedBy, DateTime CreatedAt)
 {

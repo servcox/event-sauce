@@ -6,7 +6,7 @@ using Azure.Data.Tables;
 // ReSharper disable UnusedMember.Global
 // ReSharper disable MemberCanBePrivate.Global
 
-namespace ServcoX.EventSauce.TableRecords;
+namespace ServcoX.EventSauce.V2.TableRecords;
 
 /// <remarks>
 /// This record ignores the index columns. `TableEntity` is most often used instead to access those. This is used for tests and as a notepad of what fields are actually used.

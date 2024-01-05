@@ -1,6 +1,6 @@
 using FluentAssertions;
-using ServcoX.EventSauce.TableRecords;
 using ServcoX.EventSauce.Tests.TestData;
+using ServcoX.EventSauce.V2.TableRecords;
 
 namespace ServcoX.EventSauce.Tests;
 

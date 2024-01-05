@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using ServcoX.Rfc7515C;
 
-namespace ServcoX.EventSauce.Utilities;
+namespace ServcoX.EventSauce.V2.Utilities;
 
 public static class ProjectionIdUtilities
 {

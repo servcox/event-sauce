@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace ServcoX.EventSauce.Utilities;
+namespace ServcoX.EventSauce.V2.Utilities;
 
 public static class RowKeyUtilities
 {

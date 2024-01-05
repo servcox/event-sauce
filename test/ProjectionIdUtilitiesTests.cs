@@ -1,5 +1,5 @@
 using FluentAssertions;
-using ServcoX.EventSauce.Utilities;
+using ServcoX.EventSauce.V2.Utilities;
 
 namespace ServcoX.EventSauce.Tests;
 

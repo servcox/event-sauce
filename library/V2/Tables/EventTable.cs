@@ -1,9 +1,10 @@
 using Azure;
 using Azure.Data.Tables;
-using ServcoX.EventSauce.TableRecords;
-using ServcoX.EventSauce.Utilities;
+using ServcoX.EventSauce.Exceptions;
+using ServcoX.EventSauce.V2.TableRecords;
+using ServcoX.EventSauce.V2.Utilities;
 
-namespace ServcoX.EventSauce.Tables;
+namespace ServcoX.EventSauce.V2.Tables;
 
 public sealed class EventTable(TableClient table)
 {

@@ -2,12 +2,12 @@ using System.Globalization;
 using System.Runtime.Serialization;
 using Azure;
 using Azure.Data.Tables;
-using ServcoX.EventSauce.Utilities;
+using ServcoX.EventSauce.V2.Utilities;
 
 // ReSharper disable UnusedMember.Global
 // ReSharper disable MemberCanBePrivate.Global
 
-namespace ServcoX.EventSauce.TableRecords;
+namespace ServcoX.EventSauce.V2.TableRecords;
 
 public sealed class EventRecord : ITableEntity
 {

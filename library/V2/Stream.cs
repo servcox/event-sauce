@@ -1,6 +1,6 @@
-using ServcoX.EventSauce.TableRecords;
+using ServcoX.EventSauce.V2.TableRecords;
 
-namespace ServcoX.EventSauce;
+namespace ServcoX.EventSauce.V2;
 
 public record struct Stream(String Id, String Type, UInt64 LatestVersion, DateTime LatestUpdateAt, Boolean IsArchived)
 {

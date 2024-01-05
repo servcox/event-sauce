@@ -1,9 +1,10 @@
 using System.Globalization;
 using Azure;
 using Azure.Data.Tables;
-using ServcoX.EventSauce.TableRecords;
+using ServcoX.EventSauce.Exceptions;
+using ServcoX.EventSauce.V2.TableRecords;
 
-namespace ServcoX.EventSauce.Tables;
+namespace ServcoX.EventSauce.V2.Tables;
 
 public sealed class StreamTable(TableClient table)
 {

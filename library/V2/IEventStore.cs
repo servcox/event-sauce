@@ -1,4 +1,6 @@
-namespace ServcoX.EventSauce;
+using ServcoX.EventSauce.Exceptions;
+
+namespace ServcoX.EventSauce.V2;
 
 public interface IEventStore
 {

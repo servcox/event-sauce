@@ -5,7 +5,7 @@ using Azure.Data.Tables;
 // ReSharper disable UnusedMember.Global
 // ReSharper disable MemberCanBePrivate.Global
 
-namespace ServcoX.EventSauce.TableRecords;
+namespace ServcoX.EventSauce.V2.TableRecords;
 
 public sealed class StreamRecord : ITableEntity
 {
