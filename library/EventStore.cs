@@ -67,7 +67,7 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
 
             using var stream = await sliceBlob.OpenReadAsync(scopedOffset, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            output.AddRange(DecodeEventsFromStream(stream, slice, maxEvents - (UInt32)output.Count));
+            output.AddRange(DecodeEventsFromStream(stream, slice, maxEvents - (UInt32)output.Count, (UInt64)scopedOffset));
             if (output.Count >= maxEvents) return output;
         }
 
@@ -120,7 +120,7 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
         return stream;
     }
 
-    private List<IEgressEvent<TMetadata>> DecodeEventsFromStream(Stream stream, UInt64 slice, UInt32 maxCount)
+    private List<IEgressEvent<TMetadata>> DecodeEventsFromStream(Stream stream, UInt64 slice, UInt32 maxCount, UInt64 baseOffset)
     {
         var reader = new StreamLineReader(stream);
         var output = new List<IEgressEvent<TMetadata>>();
@@ -128,9 +128,10 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
         UInt64 lastPosition = 0;
         while (reader.TryReadLine() is { } line)
         {
-            var offset = lastPosition;
-            var nextOffset = lastPosition =reader.Position;
-            
+            var offset = lastPosition + baseOffset;
+            lastPosition = reader.Position;
+            var nextOffset = lastPosition + baseOffset;
+
             if (line.Length == 0) continue; // Skip blank lines - used in testing
             var tokens = line.Split(FieldSeparator);
             var typeName = tokens[0];

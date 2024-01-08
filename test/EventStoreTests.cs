@@ -88,14 +88,13 @@ public class EventStoreTests
     public async Task CanReadWithMax()
     {
         using var wrapper = new Wrapper();
-        var blob = wrapper.Container.GetAppendBlobClient(TestSlices.First);
-        blob.AppendBlock(TestEvents.AEncoded);
-        blob.AppendBlock(TestEvents.BEncoded);
-        blob.AppendBlock(TestEvents.CEncoded);
+        wrapper.AppendLine(0, TestEvents.AEncoded);
+        wrapper.AppendLine(0, TestEvents.BEncoded);
+        wrapper.AppendLine(0, TestEvents.CEncoded);
 
         var events = (await wrapper.Sut.Read(maxEvents: 2)).ToList();
         events.Count.Should().Be(2);
-        AssertEvent(events[0], TestEvents.A, 0, 0, 71);
+        AssertEvent(events[0], TestEvents.A, 0, 0, 106);
         AssertEvent(events[1], TestEvents.B, 0, 106, 225);
     }
 
@@ -103,10 +102,9 @@ public class EventStoreTests
     public async Task CanReadWithOffset()
     {
         using var wrapper = new Wrapper();
-        var blob = wrapper.Container.GetAppendBlobClient(TestSlices.First);
-        blob.AppendBlock(TestEvents.AEncoded);
-        blob.AppendBlock(TestEvents.BEncoded);
-        blob.AppendBlock(TestEvents.CEncoded);
+        wrapper.AppendLine(0, TestEvents.AEncoded);
+        wrapper.AppendLine(0, TestEvents.BEncoded);
+        wrapper.AppendLine(0, TestEvents.CEncoded);
 
         var events = (await wrapper.Sut.Read(startSliceOffset: 106)).ToList();
         events.Count.Should().Be(2);
@@ -126,11 +124,10 @@ public class EventStoreTests
 
         var events = (await wrapper.Sut.Read()).ToList();
         events.Count.Should().Be(3);
-        AssertEvent(events[0], TestEvents.A, 0, 106, 225); // TODO: Offsets wrong
-        AssertEvent(events[1], TestEvents.B, 1, 225, 339);
-        AssertEvent(events[2], TestEvents.C, 1, 225, 339);
+        AssertEvent(events[0], TestEvents.A, 0, 999, 1105);
+        AssertEvent(events[1], TestEvents.B, 1, 0, 119);
+        AssertEvent(events[2], TestEvents.C, 1, 119, 233);
     }
-
 
     private static void AssertEvent(StreamReader reader, Object payload, Dictionary<String, String> metadata)
     {
