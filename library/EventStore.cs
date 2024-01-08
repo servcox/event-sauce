@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json.Serialization;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
@@ -23,7 +24,7 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
     private readonly JsonSerializerOptions _serializationOptions = new()
     {
 #if NET5_0_OR_GREATER
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
 #else
         IgnoreNullValues = true,
 #endif
@@ -75,7 +76,8 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
             try
             {
                 using var stream = await sliceBlob.OpenReadAsync(scopedOffset).ConfigureAwait(false);
-                output.AddRange(DecodeEventsFromStream(stream, slice, maxEvents - (UInt32)output.Count));
+                var subResults = DecodeEventsFromStream(stream, slice, maxEvents - (UInt32)output.Count);
+                output.AddRange(subResults);
                 if (output.Count >= maxEvents) return output;
             }
             catch (RequestFailedException ex) when (ex.ErrorCode == "BlobNotFound")

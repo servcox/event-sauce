@@ -1,5 +1,4 @@
-using System.Text.Json;
-using ServcoX.EventSauce.Exceptions;
+using System.Text.Json.Serialization;
 
 // ReSharper disable UnusedMethodReturnValue.Global
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Global
@@ -12,8 +11,11 @@ public sealed class BaseConfiguration
 {
     public JsonSerializerOptions SerializationOptions { get; set; } = new()
     {
+#if NET7_0 || NET8_0
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
+#else
         IgnoreNullValues = true,
-        // If upgrading SDK: DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
+#endif
     };
 
     public String StreamTableName { get; set; } = "stream";
@@ -55,21 +57,25 @@ public sealed class BaseConfiguration
         ProjectionRefreshInterval = interval;
         return this;
     }
+
     public Boolean ShouldRefreshProjectionsOnStartup { get; set; }
+
     public BaseConfiguration RefreshProjectionsOnStartup()
     {
         ShouldRefreshProjectionsOnStartup = true;
         return this;
     }
-    
+
     public Boolean ShouldRefreshProjectionsAfterWriting { get; set; }
+
     public BaseConfiguration RefreshProjectionsAfterWriting()
     {
         ShouldRefreshProjectionsAfterWriting = true;
         return this;
     }
-    
+
     public Boolean ShouldRefreshProjectionsBeforeReading { get; set; }
+
     public BaseConfiguration RefreshProjectionBeforeReading()
     {
         ShouldRefreshProjectionsBeforeReading = true;
