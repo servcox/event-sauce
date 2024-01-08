@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using Azure.Storage.Blobs.Specialized;
 using FluentAssertions;
 using ServcoX.EventSauce.Tests.Fixtures;
 
