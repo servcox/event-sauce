@@ -1,41 +1,41 @@
-﻿using ServcoX.EventSauce.V2;
+﻿using Azure.Storage.Blobs;
+using ServcoX.EventSauce;
 
 const String connectionString = "UseDevelopmentStorage=true;";
-const String streamType = "CAKE";
-var store = new EventStore(connectionString, cfg => cfg
-    .UseStreamTable("stream")
-    .UseEventTable("event")
-    .UseProjectionTable("projection")
-    .RefreshProjectionsAfterWriting()
-    .DefineProjection<Cake>(streamType: streamType, version: 1, builder => builder
-        .OnCreation((projection, id) => projection.Id = id)
-        .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
-        .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
-        .OnUnexpectedEvent((projection, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered")) // Called for any event that doesn't have a specific handler
-        .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.CreatedAt) // Called for all events - expected and unexpected
-        .Index(nameof(Cake.Color), projection => projection.Color)
-    )
-);
-var streamId = Guid.NewGuid().ToString();
-var userId = Guid.NewGuid().ToString();
-await store.CreateStream(streamId, streamType);
-await store.WriteEvents(streamId, new BakedCake(), userId);
-await store.WriteEvents(streamId, new CakeIced("BLUE"), userId);
-await store.WriteEvents(streamId, new CakeCut(3), userId);
+const String containerName = "test";
+const String topic = "CAKE";
 
-foreach (var stream in store.ListStreams(streamType))
+var container = new BlobContainerClient(connectionString, containerName);
+await container.CreateIfNotExistsAsync();
+var eventStore = new EventStore(topic, container);
+
+await eventStore.Write(new BakedCake());
+await eventStore.Write(new CakeIced("BLUE"));
+await eventStore.Write(new CakeCut(3));
+
+foreach (var evt in await eventStore.Read())
 {
-    Console.WriteLine(stream.Id);
+    Console.WriteLine($"{evt.Type}: {evt.Payload}");
 }
 
-foreach (var evt in store.ReadEvents(streamId, 0)) // <== Can pick a greater version to only read new events
-{
-    Console.WriteLine(evt.Version + ": " + evt.Body);
-}
-
-var projection = await store.ReadProjection<Cake>(streamId);
-
-var projections = store.ListProjections<Cake>(nameof(Cake.Color), "BLUE");
+//
+//
+// var projectionStore = new ProjectionStore(cfg => cfg
+//     .UseStreamTable("stream")
+//     .UseEventTable("event")
+//     .UseProjectionTable("projection")
+//     .RefreshProjectionsAfterWriting()
+//     .DefineProjection<Cake>(streamType: streamType, version: 1, builder => builder
+//         .OnCreation((projection, id) => projection.Id = id)
+//         .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
+//         .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
+//         .OnUnexpectedEvent((projection, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered")) // Called for any event that doesn't have a specific handler
+//         .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.CreatedAt) // Called for all events - expected and unexpected
+//         .Index(nameof(Cake.Color), projection => projection.Color)
+//     ))
+// var projection = await eventStore.ReadProjection<Cake>(streamId);
+//
+// var projections = eventStore.ListProjections<Cake>(nameof(Cake.Color), "BLUE");
 
 
 public record Cake
@@ -46,8 +46,8 @@ public record Cake
     public DateTime LastUpdatedAt { get; set; }
 }
 
-public readonly record struct BakedCake : IEventBody;
+public readonly record struct BakedCake;
 
-public readonly record struct CakeIced(String Color) : IEventBody;
+public readonly record struct CakeIced(String Color);
 
-public readonly record struct CakeCut(Int32 Slices) : IEventBody;
+public readonly record struct CakeCut(Int32 Slices);

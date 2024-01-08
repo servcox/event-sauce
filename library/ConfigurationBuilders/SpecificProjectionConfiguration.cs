@@ -6,9 +6,8 @@ using ServcoX.EventSauce.V2.Utilities;
 
 namespace ServcoX.EventSauce.ConfigurationBuilders;
 
-public sealed class SpecificProjectionConfiguration<TProjection>(String streamType, UInt32 version) : IProjectionBuilder where TProjection : new()
+public sealed class SpecificProjectionConfiguration<TProjection>(UInt32 version) : IProjectionBuilder where TProjection : new()
 {
-    public String StreamType { get; } = streamType.ToUpperInvariant();
     public String Id { get; } = ProjectionIdUtilities.Compute(typeof(TProjection), version);
 
     private readonly List<Object> _creationHandlers = [];
@@ -61,7 +60,6 @@ public sealed class SpecificProjectionConfiguration<TProjection>(String streamTy
 
 public interface IProjectionBuilder
 {
-    String StreamType { get; }
     String Id { get; }
     IReadOnlyList<Object> CreationHandlers { get; }
     IReadOnlyDictionary<Type, List<Object>> SpecificEventHandlers { get; }

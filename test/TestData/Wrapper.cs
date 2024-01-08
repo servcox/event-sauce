@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Azure.Data.Tables;
-using ServcoX.EventSauce.Configurations;
-using ServcoX.EventSauce.TableRecords;
+using ServcoX.EventSauce.V2.Configurations;
+using ServcoX.EventSauce.V2.TableRecords;
 
 namespace ServcoX.EventSauce.Tests.TestData;
 

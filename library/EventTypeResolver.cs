@@ -1,8 +1,9 @@
 using System.Reflection;
-using ServcoX.EventSauce.Exceptions;
+using ServcoX.EventSauce.V2;
+
 // ReSharper disable MemberCanBeMadeStatic.Global
 
-namespace ServcoX.EventSauce.V2;
+namespace ServcoX.EventSauce;
 
 public sealed class EventTypeResolver
 {
