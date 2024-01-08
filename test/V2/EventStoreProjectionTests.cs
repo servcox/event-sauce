@@ -1,19 +1,18 @@
-using Azure;
-using Azure.Data.Tables;
 using FluentAssertions;
-using ServcoX.EventSauce.Tests.TestData;
+using ServcoX.EventSauce.Exceptions;
+using ServcoX.EventSauce.Tests.V2.TestData;
 using ServcoX.EventSauce.V2.TableRecords;
 
 // ReSharper disable ObjectCreationAsStatement
 
-namespace ServcoX.EventSauce.Tests;
+namespace ServcoX.EventSauce.Tests.V2;
 
 public class EventStoreProjectionTests
 {
     [Fact]
     public void CanNotUseReservedIndexName() => Assert.Throws<InvalidIndexNameException>(() =>
     {
-        new EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
+        new EventSauce.V2.EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
             .DefineProjection<TestProjection>(Wrapper.StreamType1, Wrapper.ProjectionVersion, builder => builder
                 .Index(nameof(ProjectionRecord.ProjectionId), prj => prj.A.ToString())
             ));
@@ -22,7 +21,7 @@ public class EventStoreProjectionTests
     [Fact]
     public void CanNotUseTooLongIndexName() => Assert.Throws<InvalidIndexNameException>(() =>
     {
-        new EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
+        new EventSauce.V2.EventStore(Wrapper.DevelopmentConnectionString, cfg => cfg
             .DefineProjection<TestProjection>(Wrapper.StreamType1, Wrapper.ProjectionVersion, builder => builder
                 .Index(new('a', 256), prj => prj.A.ToString())
             ));

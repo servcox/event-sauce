@@ -1,15 +1,15 @@
 using FluentAssertions;
 using ServcoX.EventSauce.V2.Utilities;
 
-namespace ServcoX.EventSauce.Tests;
+namespace ServcoX.EventSauce.Tests.V2;
 
 public class ProjectionIdUtilitiesTests
 {
     [Theory]
-    [InlineData(typeof(ClassA1), 0, "ServcoX.EventSauce.Tests.ClassA1@0.kSmuLONJd-4")]
-    [InlineData(typeof(ClassA1), 1, "ServcoX.EventSauce.Tests.ClassA1@1.kSmuLONJd-4")]
-    [InlineData(typeof(ClassA2), 0, "ServcoX.EventSauce.Tests.ClassA2@0.635BK8CCgnA")]
-    [InlineData(typeof(ClassB), 0, "ServcoX.EventSauce.Tests.ClassB@0.9wEBXo7UJUg")]
+    [InlineData(typeof(ClassA1), 0, "ServcoX.EventSauce.Tests.V2.ClassA1@0.5hL8zAhJQWw")]
+    [InlineData(typeof(ClassA1), 1, "ServcoX.EventSauce.Tests.V2.ClassA1@1.5hL8zAhJQWw")]
+    [InlineData(typeof(ClassA2), 0, "ServcoX.EventSauce.Tests.V2.ClassA2@0.tyoytf0T9hI")]
+    [InlineData(typeof(ClassB), 0, "ServcoX.EventSauce.Tests.V2.ClassB@0.LWd8Vot-Aco")]
     public void CanComputeId(Type type, UInt32 version, String expected)
     {
         ProjectionIdUtilities.Compute(type, version).Should().Be(expected);

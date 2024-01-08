@@ -1,11 +1,11 @@
 using Azure;
 using Azure.Data.Tables;
 using FluentAssertions;
-using ServcoX.EventSauce.Tests.TestData;
+using ServcoX.EventSauce.Tests.V2.TestData;
 using ServcoX.EventSauce.V2.TableRecords;
 using ServcoX.EventSauce.V2.Utilities;
 
-namespace ServcoX.EventSauce.Tests;
+namespace ServcoX.EventSauce.Tests.V2;
 
 public class EventStoreProjectionRefreshTests
 {

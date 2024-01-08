@@ -3,7 +3,7 @@ using Azure.Data.Tables;
 using ServcoX.EventSauce.V2.Configurations;
 using ServcoX.EventSauce.V2.TableRecords;
 
-namespace ServcoX.EventSauce.Tests.TestData;
+namespace ServcoX.EventSauce.Tests.V2.TestData;
 
 public sealed class Wrapper : IDisposable
 {
@@ -101,7 +101,7 @@ public sealed class Wrapper : IDisposable
         ProjectionTable = new(DevelopmentConnectionString, projectionTableName);
         ProjectionTable.Create();
 
-        Sut = new EventStore(DevelopmentConnectionString, cfg =>
+        Sut = new EventSauce.V2.EventStore(DevelopmentConnectionString, cfg =>
         {
             cfg
                 .UseStreamTable(streamTableName)

@@ -1,9 +1,10 @@
 using System.Text.Json;
 using FluentAssertions;
-using ServcoX.EventSauce.Tests.TestData;
+using ServcoX.EventSauce.Exceptions;
+using ServcoX.EventSauce.Tests.V2.TestData;
 using ServcoX.EventSauce.V2.TableRecords;
 
-namespace ServcoX.EventSauce.Tests;
+namespace ServcoX.EventSauce.Tests.V2;
 
 public class EventStoreEventTests
 {

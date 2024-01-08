@@ -18,8 +18,8 @@ foreach (var evt in await eventStore.Read())
     Console.WriteLine($"{evt.Type}: {evt.Payload}");
 }
 
-//
-//
+
+
 // var projectionStore = new ProjectionStore(cfg => cfg
 //     .UseStreamTable("stream")
 //     .UseEventTable("event")

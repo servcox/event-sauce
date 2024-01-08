@@ -1,4 +1,4 @@
-namespace ServcoX.EventSauce.Tests.TestData;
+namespace ServcoX.EventSauce.Tests.V2.TestData;
 
 public readonly record struct TestAEvent(String A) : IEventBody;
 
