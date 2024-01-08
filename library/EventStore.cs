@@ -1,15 +1,16 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json.Serialization;
-using Azure;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 
+// ReSharper disable UseAwaitUsing
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace ServcoX.EventSauce;
 
-public class EventStore(String topic, BlobContainerClient client) : EventStore<Dictionary<String, String>>(topic, client);
+public class EventStore(String topic, BlobContainerClient client)
+    : EventStore<Dictionary<String, String>>(topic, client);
 
 public class EventStore<TMetadata>(String topic, BlobContainerClient client)
 {
@@ -18,16 +19,18 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
     private const Char RecordSeparator = '\n';
     private readonly Byte[] _fieldSeparatorBytes = { Convert.ToByte(FieldSeparator) };
     private readonly Byte[] _recordSeparatorBytes = { Convert.ToByte(RecordSeparator) };
-    private UInt64 _slice;
+    private UInt64 _lastKnownCurrentSlice;
     private const String DateFormatString = @"yyyyMMdd\THHmmss\Z";
+    private const Int32 TargetBlocksPerSlice = 1000;
+
+    private readonly BlobHttpHeaders _sliceBlobHeaders = new()
+    {
+        ContentType = "text/tab-separated-values",
+    };
 
     private readonly JsonSerializerOptions _serializationOptions = new()
     {
-#if NET5_0_OR_GREATER
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
-#else
-        IgnoreNullValues = true,
-#endif
     };
 
     public Task Write(Object payload, TMetadata? metadata = default, CancellationToken cancellationToken = default) =>
@@ -44,27 +47,16 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
 
         while (true)
         {
-            var slice = _slice;
-            var blob = await GetCreateSliceBlob(slice, cancellationToken).ConfigureAwait(false);
+            var blob = await GetCurrentSliceBlob(cancellationToken).ConfigureAwait(false);
 
             if (stream.Length > blob.AppendBlobMaxAppendBlockBytes)
                 throw new TransactionTooLargeException($"When encoded transaction is {stream.Length} bytes, which exceeds limits of {blob.AppendBlobMaxAppendBlockBytes} bytes");
 
-            try
-            {
-                await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
-                return;
-            }
-            catch (RequestFailedException ex) when (ex.ErrorCode == "BlockCountExceedsLimit")
-            {
-                Trace.WriteLine($"Topic {topic} reached max writes on slice {slice}");
-                _slice = slice + 1;
-            }
+            await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
     }
 
-
-    public async Task<IEnumerable<IEgressEvent<TMetadata>>> Read(UInt64 startSlice = 0, UInt64 startSliceOffset = 0, UInt32 maxEvents = UInt32.MaxValue)
+    public async Task<IEnumerable<IEgressEvent<TMetadata>>> Read(UInt64 startSlice = 0, UInt64 startSliceOffset = 0, UInt32 maxEvents = UInt32.MaxValue, CancellationToken cancellationToken = default)
     {
         var output = new List<IEgressEvent<TMetadata>>();
 
@@ -73,32 +65,36 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
             var sliceBlob = GetSliceBlob(slice);
             var scopedOffset = (Int64)(slice == startSlice ? startSliceOffset : 0);
 
-            try
-            {
-                using var stream = await sliceBlob.OpenReadAsync(scopedOffset).ConfigureAwait(false);
-                var subResults = DecodeEventsFromStream(stream, slice, maxEvents - (UInt32)output.Count);
-                output.AddRange(subResults);
-                if (output.Count >= maxEvents) return output;
-            }
-            catch (RequestFailedException ex) when (ex.ErrorCode == "BlobNotFound")
-            {
-                return output;
-            }
+            if (!await sliceBlob.ExistsAsync(cancellationToken).ConfigureAwait(false)) return output;
+
+            using var stream = await sliceBlob.OpenReadAsync(scopedOffset, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            output.AddRange(DecodeEventsFromStream(stream, slice, maxEvents - (UInt32)output.Count));
+            if (output.Count >= maxEvents) return output;
         }
 
         return output;
     }
 
-    private AppendBlobClient GetSliceBlob(UInt64 slice) => client.GetAppendBlobClient($"{topic.ToUpperInvariant()}.{slice.ToPaddedString()}.tsv");
+    private AppendBlobClient GetSliceBlob(UInt64 slice) =>
+        client.GetAppendBlobClient($"{topic.ToUpperInvariant()}.{slice.ToPaddedString()}.tsv");
 
-    private async Task<AppendBlobClient> GetCreateSliceBlob(UInt64 slice, CancellationToken cancellationToken)
+    private async Task<AppendBlobClient> GetCurrentSliceBlob(CancellationToken cancellationToken)
     {
-        var blob = GetSliceBlob(slice);
-        await blob.CreateIfNotExistsAsync(httpHeaders: new()
+        for (var slice = _lastKnownCurrentSlice; slice < UInt64.MaxValue; slice++)
         {
-            ContentType = "text/tab-separated-values",
-        }, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return blob;
+            var blob = GetSliceBlob(slice);
+
+            await blob.CreateIfNotExistsAsync(httpHeaders: _sliceBlobHeaders, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            _lastKnownCurrentSlice = slice;
+
+            var properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (properties.Value.BlobCommittedBlockCount < TargetBlocksPerSlice) return blob;
+        }
+
+        throw new NeverException();
     }
 
     private MemoryStream EncodeEventsAsStream(IEnumerable<IEvent<TMetadata>> events)
@@ -134,14 +130,16 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
         var output = new List<IEgressEvent<TMetadata>>();
         while (!reader.EndOfStream)
         {
-            var startOffset = (UInt64)reader.BaseStream.Position;
+            var offset = (UInt64)reader.BaseStream.Position;
             var line = reader.ReadLine()!;
-            var endOffset = (UInt64)reader.BaseStream.Position;
+            if (line.Length == 0) continue; // Skip blank lines - used in testing
+            var nextOffset = (UInt64)reader.BaseStream.Position;
             var tokens = line.Split(FieldSeparator);
             var typeName = tokens[0];
             var type = _eventTypeResolver.TryDecode(typeName) ?? typeof(Object);
             var at = DateTime.ParseExact(tokens[1], DateFormatString, CultureInfo.InvariantCulture);
-            var payload = JsonSerializer.Deserialize(tokens[2], type, _serializationOptions) ?? throw new NeverNullException();
+            var payload = JsonSerializer.Deserialize(tokens[2], type, _serializationOptions) ??
+                          throw new NeverException();
             var metadata = JsonSerializer.Deserialize<TMetadata>(tokens[3], _serializationOptions);
 
             output.Add(new EgressEvent<TMetadata>
@@ -151,8 +149,8 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
                 Metadata = metadata,
                 At = at,
                 Slice = slice,
-                StartOffset = startOffset,
-                EndOffset = endOffset,
+                Offset = offset,
+                NextOffset = nextOffset,
             });
 
             if (--maxCount == 0) return output;

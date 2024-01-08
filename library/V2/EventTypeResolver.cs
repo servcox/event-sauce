@@ -36,7 +36,7 @@ public sealed class EventTypeResolver
 
         while (pendingAssemblies.Count > 0)
         {
-            var assembly = pendingAssemblies.Pop() ?? throw new NeverNullException();
+            var assembly = pendingAssemblies.Pop() ?? throw new NeverException();
             QueueByName(assembly.GetReferencedAssemblies());
 
             var types = assembly.GetTypes().Where(type => typeof(IEventBody).IsAssignableFrom(type) && !type.IsInterface);
@@ -62,7 +62,7 @@ public sealed class EventTypeResolver
         {
             foreach (var assembly in assemblies)
             {
-                var name = assembly.FullName ?? throw new NeverNullException();
+                var name = assembly.FullName ?? throw new NeverException();
                 if (name.StartsWith("System.", StringComparison.InvariantCultureIgnoreCase)) continue;
                 if (name.StartsWith("Microsoft.", StringComparison.InvariantCultureIgnoreCase)) continue;
                 if (touchedAssemblies.Contains(name)) continue;

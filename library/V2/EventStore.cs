@@ -145,7 +145,7 @@ public sealed class EventStore : IDisposable, IEventStore
             .Select(eventRecord =>
             {
                 var type = _eventTypeResolver.TryDecode(eventRecord.Type);
-                var body = type is null ? null : (IEventBody)JsonSerializer.Deserialize(eventRecord.Body, type, _configuration.SerializationOptions)! ?? throw new NeverNullException();
+                var body = type is null ? null : (IEventBody)JsonSerializer.Deserialize(eventRecord.Body, type, _configuration.SerializationOptions)! ?? throw new NeverException();
                 return Event.CreateFrom(eventRecord, body);
             });
     }
@@ -164,7 +164,7 @@ public sealed class EventStore : IDisposable, IEventStore
 
         var record = await _projectionTable.TryRead(builder.Id, streamId, cancellationToken).ConfigureAwait(false);
         if (record is null) return default;
-        var projection = JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverNullException();
+        var projection = JsonSerializer.Deserialize<TProjection>(record.Body, _configuration.SerializationOptions) ?? throw new NeverException();
 
         return projection;
     }
@@ -257,8 +257,8 @@ public sealed class EventStore : IDisposable, IEventStore
                 var projectionBody = projectionRecord.GetString(nameof(ProjectionRecord.Body));
                 var isNewProjection = String.IsNullOrEmpty(projectionBody);
                 var projection = (isNewProjection ? Activator.CreateInstance(projectionType) : JsonSerializer.Deserialize(projectionBody, projectionType, _configuration.SerializationOptions)) ??
-                                 throw new NeverNullException();
-                var nextVersion = isNewProjection ? 0 : (UInt64)(projectionRecord.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverNullException()) + 1;
+                                 throw new NeverException();
+                var nextVersion = isNewProjection ? 0 : (UInt64)(projectionRecord.GetInt64(nameof(ProjectionRecord.Version)) ?? throw new NeverException()) + 1;
                 // TODO: Possible to only read events once, even when involved in multiple projections
                 var events = ReadEvents(streamId, nextVersion).ToList();
 
@@ -303,7 +303,7 @@ public sealed class EventStore : IDisposable, IEventStore
             var field = index.Key;
             var method = index.Value
                 .GetType()
-                .GetMethod(nameof(Func<String>.Invoke)) ?? throw new NeverNullException(); // TODO: Better performance by precomputing this?
+                .GetMethod(nameof(Func<String>.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
 
             var value = (String)method.Invoke(index.Value, new[] { projection })!;
 
@@ -320,7 +320,7 @@ public sealed class EventStore : IDisposable, IEventStore
             {
                 var method = handler
                     .GetType()
-                    .GetMethod(nameof(Action.Invoke)) ?? throw new NeverNullException(); // TODO: Better performance by precomputing this?
+                    .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
                 method.Invoke(handler, new[] { projection, streamId });
             }
         }
@@ -338,7 +338,7 @@ public sealed class EventStore : IDisposable, IEventStore
                     {
                         var method = handler
                             .GetType()
-                            .GetMethod(nameof(Action.Invoke)) ?? throw new NeverNullException();
+                            .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException();
                         method.Invoke(handler, new[] { projection, evt.Body, evt });
                     }
                 }
@@ -350,7 +350,7 @@ public sealed class EventStore : IDisposable, IEventStore
                 {
                     var method = handler
                         .GetType()
-                        .GetMethod(nameof(Action.Invoke)) ?? throw new NeverNullException(); // TODO: Better performance by precomputing this?
+                        .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
                     method.Invoke(handler, new[] { projection, evt });
                 }
             }
@@ -360,7 +360,7 @@ public sealed class EventStore : IDisposable, IEventStore
             {
                 var method = handler
                     .GetType()
-                    .GetMethod(nameof(Action.Invoke)) ?? throw new NeverNullException(); // TODO: Better performance by precomputing this?
+                    .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
                 method.Invoke(handler, new[] { projection, evt });
             }
         }

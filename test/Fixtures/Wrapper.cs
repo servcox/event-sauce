@@ -1,5 +1,6 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
+using ServcoX.EventSauce.Extensions;
 using Stream = System.IO.Stream;
 
 namespace ServcoX.EventSauce.Tests.Fixtures;
@@ -7,34 +8,36 @@ namespace ServcoX.EventSauce.Tests.Fixtures;
 public sealed class Wrapper : IDisposable
 {
     private const String ConnectionString = "UseDevelopmentStorage=true;";
-    public  BlobContainerClient Container { get; }
+    public BlobContainerClient Container { get; }
     public EventStore Sut { get; }
+    private readonly String _topic;
 
     public Wrapper()
     {
-        var containerName = $"test-{Guid.NewGuid():N}";
+        var containerName = "unit-tests";
         Container = new(ConnectionString, containerName);
-        Container.Create();
+        Container.CreateIfNotExists();
 
-        const String topic = "TEST";
-        Sut = new(topic, Container);
+        _topic = Guid.NewGuid().ToString("N").ToUpperInvariant();
+        Sut = new(_topic, Container);
     }
 
-    public Stream GetBlob(String blobName)
-    {
-        var content = Container.GetBlobClient(blobName).DownloadContent();
-        return content.Value.Content.ToStream();
-    }
+    public AppendBlobClient GetSliceClient(UInt64 slice) =>
+        Container.GetAppendBlobClient($"{_topic}.{slice.ToPaddedString()}.tsv");
 
-    public void AppendBlock(String blobName, String block)
+    public StreamReader GetSliceStream(UInt64 slice) =>
+        new(GetSliceClient(slice).DownloadContent().Value.Content.ToStream());
+
+    public void AppendBlock(UInt64 slice, String block)
     {
-        var blob = Container.GetAppendBlobClient(blobName);
+        var blob = GetSliceClient(slice);
         blob.CreateIfNotExists();
         blob.AppendBlock(block);
     }
 
     public void Dispose()
     {
-        Container.DeleteIfExists();
+        GetSliceClient(0).DeleteIfExists();
+        GetSliceClient(1).DeleteIfExists();
     }
 }

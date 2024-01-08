@@ -17,7 +17,7 @@ public static class AppendBlobClientExtensions
     {
         ArgumentNullException.ThrowIfNull(target);
 
-        using var stream = new MemoryStream(Encoding.UTF8.GetBytes( buffer));
-         target.AppendBlock(stream);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(buffer));
+        target.AppendBlock(stream);
     }
 }
