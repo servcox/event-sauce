@@ -17,7 +17,7 @@ public class ProjectionStore
 
         LoadRemoteCache();
     }
-    
+
     public async Task<TProjection> Read<TProjection>(String streamId, CancellationToken cancellationToken = default) =>
         await TryRead<TProjection>(streamId, cancellationToken).ConfigureAwait(false) ?? throw new NotFoundException();
 
@@ -32,19 +32,30 @@ public class ProjectionStore
         return (TProjection)projection;
     }
 
+    public async Task<List<TProjection>> List<TProjection>(CancellationToken cancellationToken = default)
+    {
+        await LoadAnyNewEvents(cancellationToken).ConfigureAwait(false);
+        await WriteRemoteCacheIfDirty(cancellationToken).ConfigureAwait(false);
+
+        var type = typeof(TProjection);
+        if (!_projections.TryGetValue(type, out var projections)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
+
+        return projections.Values.Cast<TProjection>().ToList();
+    }
+
     public Task<List<TProjection>> Query<TProjection>(String key, Object value, CancellationToken cancellationToken = default) =>
         Query<TProjection>(new Dictionary<String, Object> { [key] = value }, cancellationToken);
 
     public async Task<List<TProjection>> Query<TProjection>(IDictionary<String, Object> query, CancellationToken cancellationToken = default)
     {
         if (query is null) throw new ArgumentNullException(nameof(query));
-        
+
         await LoadAnyNewEvents(cancellationToken).ConfigureAwait(false);
         await WriteRemoteCacheIfDirty(cancellationToken).ConfigureAwait(false);
-        
+
         var type = typeof(TProjection);
         if (!_indexes.TryGetValue(type, out var indexes)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
-        
+
         List<String>? candidate = null;
         foreach (var q in query)
         {
@@ -54,7 +65,7 @@ public class ProjectionStore
             candidate = candidate is null ? matches : candidate.Intersect(matches).ToList();
             if (candidate.Count == 0) return [];
         }
-        
+
         if (!_projections.TryGetValue(type, out var projections)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
         return candidate is null ? [] : candidate.Select(id => (TProjection)projections[id]).ToList();
     }

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
@@ -33,18 +34,22 @@ public class EventStore
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
     };
 
-    private readonly String _topic;
+    private readonly String _aggregate;
     private readonly BlobContainerClient _client;
 
-    public EventStore(String topic, BlobContainerClient client, Action<EventStoreConfiguration>? builder = null)
+    private readonly Regex
+        _aggregatePattern = new("^[A-Z0-9-_ ]{1,64}$"); // Tightened from https://learn.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata#blob-names
+
+    public EventStore(String aggregateName, BlobContainerClient client, Action<EventStoreConfiguration>? builder = null)
     {
-        _topic = topic;
+        if (aggregateName is null || !_aggregatePattern.IsMatch(aggregateName)) throw new ArgumentException($"Must not be null and match pattern {_aggregatePattern}", nameof(aggregateName));
+        _aggregate = aggregateName;
         _client = client;
         builder?.Invoke(_configuration);
     }
 
-    public Task Write(Object payload, IDictionary<String,String>? metadata = default, CancellationToken cancellationToken = default) =>
-        Write(new Event { Payload = payload, Metadata = metadata ?? new Dictionary<String, String>() }, cancellationToken);
+    public Task Write(String aggregateId, Object payload, IDictionary<String, String>? metadata = default, CancellationToken cancellationToken = default) =>
+        Write(new Event { AggregateId = aggregateId, Payload = payload, Metadata = metadata ?? new Dictionary<String, String>() }, cancellationToken);
 
     public Task Write(IEvent evt, CancellationToken cancellationToken = default) =>
         Write(new List<IEvent> { evt }, cancellationToken);
@@ -85,7 +90,7 @@ public class EventStore
     }
 
     private AppendBlobClient GetSliceBlob(UInt64 slice) =>
-        _client.GetAppendBlobClient($"{_topic.ToUpperInvariant()}.{slice.ToPaddedString()}.tsv");
+        _client.GetAppendBlobClient($"{_aggregate.ToUpperInvariant()}.{slice.ToPaddedString()}.tsv");
 
     private async Task<AppendBlobClient> GetCurrentSliceBlob(CancellationToken cancellationToken)
     {
@@ -109,6 +114,10 @@ public class EventStore
         var stream = new MemoryStream();
         foreach (var evt in events)
         {
+            if (evt.AggregateId.Contains(FieldSeparator) || evt.AggregateId.Contains(RecordSeparator)) throw new BadEventException($"{nameof(Event.AggregateId)} cannot contain \t or \n");
+            stream.WriteAsUtf8(evt.AggregateId);
+            stream.Write(_fieldSeparatorBytes);
+
             var typeName = _eventTypeResolver.Encode(evt.Payload.GetType());
             stream.WriteAsUtf8(typeName);
             stream.Write(_fieldSeparatorBytes);
@@ -116,7 +125,7 @@ public class EventStore
             stream.WriteAsUtf8(at);
             stream.Write(_fieldSeparatorBytes);
 
-            if (evt.Payload is null) throw new NullPayloadException("One or more provided payloads are null");
+            if (evt.Payload is null) throw new BadEventException("One or more provided payloads are null");
             var payloadEncoded = JsonSerializer.Serialize(evt.Payload, _serializationOptions);
             stream.WriteAsUtf8(payloadEncoded);
             stream.Write(_fieldSeparatorBytes);
@@ -144,14 +153,16 @@ public class EventStore
 
             if (line.Length == 0) continue; // Skip blank lines - used in testing
             var tokens = line.Split(FieldSeparator);
-            var typeName = tokens[0];
+            var aggregateId = tokens[0];
+            var typeName = tokens[1];
             var type = _eventTypeResolver.TryDecode(typeName) ?? typeof(Object);
-            var at = DateTime.ParseExact(tokens[1], DateFormatString, CultureInfo.InvariantCulture);
-            var payload = JsonSerializer.Deserialize(tokens[2], type, _serializationOptions) ?? throw new NeverException();
-            var metadata = JsonSerializer.Deserialize<Dictionary<String,String>>(tokens[3], _serializationOptions) ?? new Dictionary<String,String>();
+            var at = DateTime.ParseExact(tokens[2], DateFormatString, CultureInfo.InvariantCulture);
+            var payload = JsonSerializer.Deserialize(tokens[3], type, _serializationOptions) ?? throw new NeverException();
+            var metadata = JsonSerializer.Deserialize<Dictionary<String, String>>(tokens[4], _serializationOptions) ?? new Dictionary<String, String>();
 
             output.Add(new EgressEvent
             {
+                AggregateId = aggregateId,
                 Type = typeName,
                 Payload = payload,
                 Metadata = metadata,

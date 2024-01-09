@@ -9,4 +9,5 @@ public interface IEgressEvent : IEvent
     UInt64 NextOffset { get; }
 }
 
-public readonly record struct EgressEvent(String Type, Object Payload, IDictionary<String,String> Metadata, DateTime At, UInt64 Slice, UInt64 Offset, UInt64 NextOffset) : IEgressEvent;
+public readonly record struct EgressEvent(String AggregateId, String Type, Object Payload, IDictionary<String, String> Metadata, DateTime At, UInt64 Slice, UInt64 Offset, UInt64 NextOffset)
+    : IEgressEvent;

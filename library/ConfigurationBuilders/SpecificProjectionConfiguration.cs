@@ -44,15 +44,15 @@ public sealed class SpecificProjectionConfiguration<TProjection>(UInt32 version)
         _anyEventHandlers.Add(action);
         return this;
     }
+    
+    private readonly HashSet<String> _indexes = [];
+    public IReadOnlyList<String> Indexes => new List<String>(_indexes);
 
-    // public Dictionary<String, Object> Indexes { get; } = new();
-    //
-    // public SpecificProjectionConfiguration<TProjection> Index(String key, Func<TProjection, String> value)
-    // {
-    //     if (Indexes.ContainsKey(key)) throw new AlreadyExistsException();
-    //     Indexes.Add(key, value);
-    //     return this;
-    // }
+    public SpecificProjectionConfiguration<TProjection> IndexField(String key)
+    {
+        _indexes.Add(key);
+        return this;
+    }
 }
 
 public interface IProjectionBuilder

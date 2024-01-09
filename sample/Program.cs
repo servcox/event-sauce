@@ -3,22 +3,21 @@ using ServcoX.EventSauce;
 
 const String connectionString = "UseDevelopmentStorage=true;";
 const String containerName = "test";
-const String topic = "CAKE";
+const String aggregateName = "CAKE";
 
 var container = new BlobContainerClient(connectionString, containerName);
 await container.CreateIfNotExistsAsync();
-var eventStore = new EventStore(topic, container);
+var eventStore = new EventStore(aggregateName, container);
 
-await eventStore.Write(new CakeBaked());
-await eventStore.Write(new CakeIced("BLUE"));
-await eventStore.Write(new CakeCut(3));
+var aggregateId = Guid.NewGuid().ToString("N");
+await eventStore.Write(aggregateId, new CakeBaked());
+await eventStore.Write(aggregateId, new CakeIced("BLUE"));
+await eventStore.Write(aggregateId, new CakeCut(3));
 
 foreach (var evt in await eventStore.Read())
 {
     Console.WriteLine($"{evt.Type}: {evt.Payload}");
 }
-
-
 
 var projectionStore = new ProjectionStore(eventStore, cfg => cfg
     .DefineProjection<Cake>(version: 1, builder => builder
@@ -27,11 +26,12 @@ var projectionStore = new ProjectionStore(eventStore, cfg => cfg
         .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
         .OnUnexpectedEvent((projection, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered")) // Called for any event that doesn't have a specific handler
         .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.At) // Called for all events - expected and unexpected
-        .Index(nameof(Cake.Color), projection => projection.Color)
+        .IndexField(nameof(Cake.Color))
     ));
-var projection = await eventStore.Read(streamId);
 
-var projections = eventStore.ListProjections<Cake>(nameof(Cake.Color), "BLUE");
+var projection = await projectionStore.Read<Cake>(aggregateId);
+
+var projections = projectionStore.Query<Cake>(nameof(Cake.Color), "BLUE");
 
 
 public record Cake
