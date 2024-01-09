@@ -3,25 +3,25 @@ using System.Text.Json.Serialization;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
+using ServcoX.EventSauce.ConfigurationBuilders;
+using Stream = System.IO.Stream;
 
 // ReSharper disable UseAwaitUsing
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace ServcoX.EventSauce;
 
-public class EventStore(String topic, BlobContainerClient client)
-    : EventStore<Dictionary<String, String>>(topic, client);
-
-public class EventStore<TMetadata>(String topic, BlobContainerClient client)
+public class EventStore
 {
     private readonly EventTypeResolver _eventTypeResolver = new();
+    private readonly EventStoreConfiguration _configuration = new();
     private const Char FieldSeparator = '\t';
     private const Char RecordSeparator = '\n';
     private readonly Byte[] _fieldSeparatorBytes = { Convert.ToByte(FieldSeparator) };
     private readonly Byte[] _recordSeparatorBytes = { Convert.ToByte(RecordSeparator) };
     private UInt64 _lastKnownCurrentSlice;
     private const String DateFormatString = @"yyyyMMdd\THHmmss\Z";
-    public const Int32 TargetBlocksPerSlice = 1000; // TODO: Make configurable
+    public BlobContainerClient UnderlyingContainerClient => _client;
 
     private readonly BlobHttpHeaders _sliceBlobHeaders = new()
     {
@@ -33,16 +33,26 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
     };
 
-    public Task Write(Object payload, TMetadata? metadata = default, CancellationToken cancellationToken = default) =>
-        Write(new Event<TMetadata> { Payload = payload, Metadata = metadata }, cancellationToken);
+    private readonly String _topic;
+    private readonly BlobContainerClient _client;
 
-    public Task Write(IEvent<TMetadata> evt, CancellationToken cancellationToken = default) =>
-        Write(new List<IEvent<TMetadata>> { evt }, cancellationToken);
+    public EventStore(String topic, BlobContainerClient client, Action<EventStoreConfiguration>? builder = null)
+    {
+        _topic = topic;
+        _client = client;
+        builder?.Invoke(_configuration);
+    }
 
-    public Task Write(IEnumerable<Event<TMetadata>> events, CancellationToken cancellationToken = default) =>
-        Write(events.Cast<IEvent<TMetadata>>(), cancellationToken);
+    public Task Write(Object payload, IDictionary<String,String>? metadata = default, CancellationToken cancellationToken = default) =>
+        Write(new Event { Payload = payload, Metadata = metadata ?? new Dictionary<String, String>() }, cancellationToken);
 
-    public async Task Write(IEnumerable<IEvent<TMetadata>> events, CancellationToken cancellationToken = default)
+    public Task Write(IEvent evt, CancellationToken cancellationToken = default) =>
+        Write(new List<IEvent> { evt }, cancellationToken);
+
+    public Task Write(IEnumerable<Event> events, CancellationToken cancellationToken = default) =>
+        Write(events.Cast<IEvent>(), cancellationToken);
+
+    public async Task Write(IEnumerable<IEvent> events, CancellationToken cancellationToken = default)
     {
         if (events is null) throw new ArgumentNullException(nameof(events));
 
@@ -54,9 +64,9 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
         await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<IEnumerable<IEgressEvent<TMetadata>>> Read(UInt64 startSlice = 0, UInt64 startSliceOffset = 0, UInt32 maxEvents = UInt32.MaxValue, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<IEgressEvent>> Read(UInt64 startSlice = 0, UInt64 startSliceOffset = 0, UInt32 maxEvents = UInt32.MaxValue, CancellationToken cancellationToken = default)
     {
-        var output = new List<IEgressEvent<TMetadata>>();
+        var output = new List<IEgressEvent>();
 
         for (var slice = startSlice; slice < UInt64.MaxValue; slice++)
         {
@@ -75,7 +85,7 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
     }
 
     private AppendBlobClient GetSliceBlob(UInt64 slice) =>
-        client.GetAppendBlobClient($"{topic.ToUpperInvariant()}.{slice.ToPaddedString()}.tsv");
+        _client.GetAppendBlobClient($"{_topic.ToUpperInvariant()}.{slice.ToPaddedString()}.tsv");
 
     private async Task<AppendBlobClient> GetCurrentSliceBlob(CancellationToken cancellationToken)
     {
@@ -87,13 +97,13 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
             _lastKnownCurrentSlice = slice;
 
             var properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (properties.Value.BlobCommittedBlockCount < TargetBlocksPerSlice) return blob;
+            if (properties.Value.BlobCommittedBlockCount < _configuration.TargetBlocksPerSlice) return blob;
         }
 
         throw new NeverException();
     }
 
-    private MemoryStream EncodeEventsAsStream(IEnumerable<IEvent<TMetadata>> events)
+    private MemoryStream EncodeEventsAsStream(IEnumerable<IEvent> events)
     {
         var at = DateTime.UtcNow.ToString(DateFormatString, CultureInfo.InvariantCulture);
         var stream = new MemoryStream();
@@ -120,10 +130,10 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
         return stream;
     }
 
-    private List<IEgressEvent<TMetadata>> DecodeEventsFromStream(Stream stream, UInt64 slice, UInt32 maxCount, UInt64 baseOffset)
+    private List<IEgressEvent> DecodeEventsFromStream(Stream stream, UInt64 slice, UInt32 maxCount, UInt64 baseOffset)
     {
         var reader = new StreamLineReader(stream);
-        var output = new List<IEgressEvent<TMetadata>>();
+        var output = new List<IEgressEvent>();
 
         UInt64 lastPosition = 0;
         while (reader.TryReadLine() is { } line)
@@ -138,9 +148,9 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
             var type = _eventTypeResolver.TryDecode(typeName) ?? typeof(Object);
             var at = DateTime.ParseExact(tokens[1], DateFormatString, CultureInfo.InvariantCulture);
             var payload = JsonSerializer.Deserialize(tokens[2], type, _serializationOptions) ?? throw new NeverException();
-            var metadata = JsonSerializer.Deserialize<TMetadata>(tokens[3], _serializationOptions);
+            var metadata = JsonSerializer.Deserialize<Dictionary<String,String>>(tokens[3], _serializationOptions) ?? new Dictionary<String,String>();
 
-            output.Add(new EgressEvent<TMetadata>
+            output.Add(new EgressEvent
             {
                 Type = typeName,
                 Payload = payload,

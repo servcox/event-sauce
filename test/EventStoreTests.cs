@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using FluentAssertions;
 using ServcoX.EventSauce.Tests.Fixtures;
+using Event = ServcoX.EventSauce.Events.Event;
 
 namespace ServcoX.EventSauce.Tests;
 
@@ -25,7 +26,7 @@ public class EventStoreTests
     public async Task CanWriteMultiples()
     {
         using var wrapper = new Wrapper();
-        await wrapper.Sut.Write(new List<Event<Dictionary<String, String>>>
+        await wrapper.Sut.Write(new List<Event>
         {
             new(TestPayloads.A, TestMetadata.A),
             new(TestPayloads.B, TestMetadata.B),
@@ -49,7 +50,7 @@ public class EventStoreTests
         await wrapper.Sut.Write(TestPayloads.C, TestMetadata.C);
 
         using var reader0 = wrapper.GetSliceStream(0);
-        for (var i = 0; i < 999; i++) reader0.ReadLine()!.Should().BeEmpty();
+        for (var i = 0; i < Wrapper.MaxBlocksPerSlice-1; i++) reader0.ReadLine()!.Should().BeEmpty();
         AssertEvent(reader0, TestPayloads.A, TestMetadata.A);
 
         using var reader1 = wrapper.GetSliceStream(1);
@@ -123,7 +124,7 @@ public class EventStoreTests
 
         var events = (await wrapper.Sut.Read()).ToList();
         events.Count.Should().Be(3);
-        AssertEvent(events[0], TestEvents.A, 0, 999, 1105);
+        AssertEvent(events[0], TestEvents.A, 0, Wrapper.MaxBlocksPerSlice-1, Wrapper.MaxBlocksPerSlice + 105);
         AssertEvent(events[1], TestEvents.B, 1, 0, 119);
         AssertEvent(events[2], TestEvents.C, 1, 119, 233);
     }
@@ -140,7 +141,7 @@ public class EventStoreTests
         tokens[3].Should().BeEquivalentTo(JsonSerializer.Serialize(metadata));
     }
 
-    private static void AssertEvent(IEgressEvent<Dictionary<String, String>> actual, IEgressEvent<Dictionary<String, String>> expected, UInt64 slice, UInt64 offset, UInt64 nextOffset)
+    private static void AssertEvent(IEgressEvent actual, IEgressEvent expected, UInt64 slice, UInt64 offset, UInt64 nextOffset)
     {
         actual.Type.Should().BeEquivalentTo(expected.Type);
         actual.Payload.Should().Be(expected.Payload);

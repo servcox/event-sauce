@@ -10,7 +10,7 @@ namespace ServcoX.EventSauce.V2.Configurations;
 public sealed class ProjectionConfiguration<TProjection>(String streamType, UInt32 version) : IProjectionBuilder where TProjection : new()
 {
     public String StreamType { get; } = streamType.ToUpperInvariant();
-    public String Id { get; } = ProjectionIdUtilities.Compute(typeof(TProjection), version);
+    public String Id { get; } = ProjectionId.Compute(typeof(TProjection), version);
 
     public Collection<Object> CreationHandlers { get; } = new();
 

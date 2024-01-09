@@ -1,7 +1,7 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
+using ServcoX.EventSauce.ConfigurationBuilders;
 using ServcoX.EventSauce.Extensions;
-using Stream = System.IO.Stream;
 
 namespace ServcoX.EventSauce.Tests.Fixtures;
 
@@ -12,14 +12,20 @@ public sealed class Wrapper : IDisposable
     public EventStore Sut { get; }
     private readonly String _topic;
 
-    public Wrapper()
+    public const Int32 MaxBlocksPerSlice = 10;
+
+    public Wrapper(Action<EventStoreConfiguration>? builder = null)
     {
         var containerName = "unit-tests";
         Container = new(ConnectionString, containerName);
         Container.CreateIfNotExists();
 
         _topic = Guid.NewGuid().ToString("N").ToUpperInvariant();
-        Sut = new(_topic, Container);
+        Sut = new(_topic, Container, cfg =>
+        {
+            cfg.UseTargetBlocksPerSlice(MaxBlocksPerSlice);
+            builder?.Invoke(cfg);
+        });
     }
 
     public AppendBlobClient GetSliceClient(UInt64 slice) =>
@@ -41,7 +47,7 @@ public sealed class Wrapper : IDisposable
         blob.CreateIfNotExists();
 
         using var stream = new MemoryStream("\n"u8.ToArray());
-        for (var i = 0; i < EventStore.TargetBlocksPerSlice -1; i++)
+        for (var i = 0; i < MaxBlocksPerSlice - 1; i++)
         {
             blob.AppendBlock(stream);
             stream.Rewind();

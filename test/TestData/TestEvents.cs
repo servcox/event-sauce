@@ -4,7 +4,7 @@ namespace ServcoX.EventSauce.Tests.TestData;
 
 public static class TestEvents
 {
-    public static EgressEvent<Dictionary<String, String>> A => new()
+    public static EgressEvent A => new()
     {
         Type = typeof(CakeBaked).FullName!.ToUpperInvariant(),
         Payload = TestPayloads.A,
@@ -15,7 +15,7 @@ public static class TestEvents
         NextOffset = 0,
     };
 
-    public static EgressEvent<Dictionary<String, String>> B => new()
+    public static EgressEvent B => new()
     {
         Type = typeof(CakeIced).FullName!.ToUpperInvariant(),
         Payload = TestPayloads.B,
@@ -26,7 +26,7 @@ public static class TestEvents
         NextOffset = 0,
     };
 
-    public static EgressEvent<Dictionary<String, String>> C => new()
+    public static EgressEvent C => new()
     {
         Type = typeof(CakeCut).FullName!.ToUpperInvariant(),
         Payload = TestPayloads.C,

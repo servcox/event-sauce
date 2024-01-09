@@ -18,7 +18,7 @@
         <Product>Event Sauce</Product>
 
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-        <WarningsNotAsErrors>NU5125;CA1822;SYSLIB0020;CA1850</WarningsNotAsErrors>
+        <WarningsNotAsErrors>NU5125;CA1822;SYSLIB0020;CA1850;CS1998</WarningsNotAsErrors>
         <NoWarn>CA1040;CA1711;CA1716;CA1510;CA1307</NoWarn>
         <AnalysisMode>All</AnalysisMode>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

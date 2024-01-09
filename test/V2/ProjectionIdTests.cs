@@ -3,7 +3,7 @@ using ServcoX.EventSauce.V2.Utilities;
 
 namespace ServcoX.EventSauce.Tests.V2;
 
-public class ProjectionIdUtilitiesTests
+public class ProjectionIdTests
 {
     [Theory]
     [InlineData(typeof(ClassA1), 0, "ServcoX.EventSauce.Tests.V2.ClassA1@0.5hL8zAhJQWw")]
@@ -12,7 +12,7 @@ public class ProjectionIdUtilitiesTests
     [InlineData(typeof(ClassB), 0, "ServcoX.EventSauce.Tests.V2.ClassB@0.LWd8Vot-Aco")]
     public void CanComputeId(Type type, UInt32 version, String expected)
     {
-        ProjectionIdUtilities.Compute(type, version).Should().Be(expected);
+        EventSauce.ProjectionId.Compute(type, version).Should().Be(expected);
     }
 }
 

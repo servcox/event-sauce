@@ -1,9 +1,9 @@
 namespace ServcoX.EventSauce.Events;
 
-public interface IEvent<out TMetadata>
+public interface IEvent
 {
     Object Payload { get; }
-    TMetadata? Metadata { get; }
+    IDictionary<String,String> Metadata { get; }
 }
 
-public readonly record struct Event<TMetadata>(Object Payload, TMetadata? Metadata) : IEvent<TMetadata>;
+public readonly record struct Event(Object Payload, IDictionary<String,String> Metadata) : IEvent;

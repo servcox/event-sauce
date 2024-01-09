@@ -14,7 +14,7 @@ public class EventStoreProjectionRefreshTests
     public void ProjectionsNotRefreshedUnlessAsked()
     {
         using var wrapper = new Wrapper();
-        var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
+        var projectionId = EventSauce.ProjectionId.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
         Assert.Throws<RequestFailedException>(() => wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1));
     }
     
@@ -63,7 +63,7 @@ public class EventStoreProjectionRefreshTests
         await wrapper.Sut.RefreshProjections(Wrapper.StreamId1);
 
         // Check that the index was created
-        var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
+        var projectionId = EventSauce.ProjectionId.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
         var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId1).Value;
         record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(3);
         record.GetString("A").Should().Be("1");
@@ -93,7 +93,7 @@ public class EventStoreProjectionRefreshTests
         await wrapper.Sut.WriteEvents(Wrapper.StreamId2, new TestAEvent("a"), Wrapper.UserId);
 
         // Check that the index was created
-        var projectionId = ProjectionIdUtilities.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
+        var projectionId = EventSauce.ProjectionId.Compute(typeof(TestProjection), Wrapper.ProjectionVersion);
         var record = wrapper.ProjectionTable.GetEntity<TableEntity>(projectionId, Wrapper.StreamId2).Value;
         record.GetInt64(nameof(ProjectionRecord.Version)).Should().Be(1);
         record.GetString("A").Should().Be("1");

@@ -66,10 +66,12 @@ public class ProjectionStore
 
     private async Task WriteRemoteCacheIfDirty(CancellationToken cancellationToken)
     {
+        throw new NotImplementedException();
     }
 
     private async Task WriteCache(CancellationToken cancellationToken)
     {
+        throw new NotImplementedException();
     }
 
     private async Task LoadAnyNewEvents(CancellationToken cancellationToken)
@@ -77,5 +79,6 @@ public class ProjectionStore
         // TODO: Fetch new events
         // TODO: Regenerate index
         // TODO: If changed, trigger timer to update cache
+        throw new NotImplementedException();
     }
 }

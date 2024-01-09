@@ -1,6 +1,3 @@
-using ServcoX.EventSauce.V2;
-using ServcoX.EventSauce.V2.Utilities;
-
 // ReSharper disable UnusedMethodReturnValue.Global
 // ReSharper disable ClassNeverInstantiated.Global
 
@@ -8,7 +5,7 @@ namespace ServcoX.EventSauce.ConfigurationBuilders;
 
 public sealed class SpecificProjectionConfiguration<TProjection>(UInt32 version) : IProjectionBuilder where TProjection : new()
 {
-    public String Id { get; } = ProjectionIdUtilities.Compute(typeof(TProjection), version);
+    public String Id { get; } = ProjectionId.Compute(typeof(TProjection), version);
 
     private readonly List<Object> _creationHandlers = [];
     public IReadOnlyList<Object> CreationHandlers => _creationHandlers;
@@ -20,12 +17,12 @@ public sealed class SpecificProjectionConfiguration<TProjection>(UInt32 version)
     }
 
     private readonly Dictionary<Type, List<Object>> _specificEventHandlers = [];
-    public IReadOnlyDictionary<Type, List<Object>> SpecificEventHandlers => _specificEventHandlers; // TODO: Should return fully read-only type, just not worth the squeeze today
+    public IReadOnlyDictionary<Type, IReadOnlyList<Object>> SpecificEventHandlers => _specificEventHandlers.ToDictionary(handler => handler.Key, a => (IReadOnlyList<Object>)a.Value).AsReadOnly();
 
-    public SpecificProjectionConfiguration<TProjection> OnEvent<TEventBody>(Action<TProjection, TEventBody, Event> action) where TEventBody : IEventBody
+    public SpecificProjectionConfiguration<TProjection> OnEvent<TEventBody>(Action<TProjection, TEventBody, IEgressEvent> action)
     {
         var eventBodyType = typeof(TEventBody);
-        if (!_specificEventHandlers.TryGetValue(eventBodyType, out var actions)) _specificEventHandlers[eventBodyType] = actions = new();
+        if (!_specificEventHandlers.TryGetValue(eventBodyType, out var actions)) _specificEventHandlers[eventBodyType] = actions = [];
         actions.Add(action);
         return this;
     }
@@ -33,16 +30,16 @@ public sealed class SpecificProjectionConfiguration<TProjection>(UInt32 version)
     private readonly List<Object> _unexpectedEventHandlers = [];
     public IReadOnlyList<Object> UnexpectedEventHandlers => _unexpectedEventHandlers;
 
-    public SpecificProjectionConfiguration<TProjection> OnUnexpectedEvent(Action<TProjection, Event> action)
+    public SpecificProjectionConfiguration<TProjection> OnUnexpectedEvent(Action<TProjection, IEgressEvent> action)
     {
         _unexpectedEventHandlers.Add(action);
         return this;
     }
-    
+
     private readonly List<Object> _anyEventHandlers = [];
     public IReadOnlyList<Object> AnyEventHandlers => _anyEventHandlers;
 
-    public SpecificProjectionConfiguration<TProjection> OnAnyEvent(Action<TProjection, Event> action)
+    public SpecificProjectionConfiguration<TProjection> OnAnyEvent(Action<TProjection, IEgressEvent> action)
     {
         _anyEventHandlers.Add(action);
         return this;
@@ -62,7 +59,7 @@ public interface IProjectionBuilder
 {
     String Id { get; }
     IReadOnlyList<Object> CreationHandlers { get; }
-    IReadOnlyDictionary<Type, List<Object>> SpecificEventHandlers { get; }
+    IReadOnlyDictionary<Type, IReadOnlyList<Object>> SpecificEventHandlers { get; }
     IReadOnlyList<Object> UnexpectedEventHandlers { get; }
     IReadOnlyList<Object> AnyEventHandlers { get; }
     // IReadOnlyDictionary<String, Object> Indexes { get; }
