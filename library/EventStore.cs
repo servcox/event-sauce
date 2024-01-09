@@ -21,7 +21,7 @@ public class EventStore<TMetadata>(String topic, BlobContainerClient client)
     private readonly Byte[] _recordSeparatorBytes = { Convert.ToByte(RecordSeparator) };
     private UInt64 _lastKnownCurrentSlice;
     private const String DateFormatString = @"yyyyMMdd\THHmmss\Z";
-    public const Int32 TargetBlocksPerSlice = 1000;
+    public const Int32 TargetBlocksPerSlice = 1000; // TODO: Make configurable
 
     private readonly BlobHttpHeaders _sliceBlobHeaders = new()
     {
