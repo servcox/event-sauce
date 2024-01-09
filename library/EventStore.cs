@@ -33,11 +33,12 @@ public class EventStore
     private const Char RecordSeparator = '\n';
     private static readonly Byte[] FieldSeparatorBytes = { Convert.ToByte(FieldSeparator) };
     private static readonly Byte[] RecordSeparatorBytes = { Convert.ToByte(RecordSeparator) };
-    
+
     private readonly EventTypeResolver _eventTypeResolver = new();
     private readonly EventStoreConfiguration _configuration = new();
     private readonly String _sliceBlobPathPrefix;
     private readonly String _sliceBlobPathPostfix = ".tsv";
+    public String AggregateName { get; }
     private readonly BlobContainerClient _client;
     public BlobContainerClient UnderlyingContainerClient => _client;
     private Int64 _currentSliceId;
@@ -45,7 +46,8 @@ public class EventStore
     public EventStore(String aggregateName, BlobContainerClient client, Action<EventStoreConfiguration>? builder = null)
     {
         if (aggregateName is null || !AggregateNamePattern.IsMatch(aggregateName)) throw new ArgumentException($"Must not be null and match pattern {AggregateNamePattern}", nameof(aggregateName));
-        _sliceBlobPathPrefix = $"{aggregateName}/event/{aggregateName.ToUpperInvariant()}.";
+        AggregateName = aggregateName;
+        _sliceBlobPathPrefix = $"{aggregateName}/event/{aggregateName}.";
         _client = client;
         builder?.Invoke(_configuration);
 

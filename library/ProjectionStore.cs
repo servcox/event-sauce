@@ -1,29 +1,45 @@
 using System.Collections.Concurrent;
+using Azure;
+using Salar.Bois.LZ4;
 using ServcoX.EventSauce.Configurations;
+using Timer = System.Timers.Timer;
 
 namespace ServcoX.EventSauce;
 
-public class ProjectionStore
+public class ProjectionStore : IDisposable
 {
-    private sealed class Instance(IProjectionBuilder builder)
+    private sealed class Instance
     {
-        public readonly IProjectionBuilder Builder = builder;
         public ConcurrentDictionary<String, ConcurrentDictionary<Object, List<String>>> Indexes = new(); // Field => Value => Id
         public ConcurrentDictionary<String, Object> Records = new(); // Id => Projection
     }
 
     private readonly EventStore _store;
     private readonly ProjectionStoreConfiguration _configuration = new();
-    private readonly Dictionary<Type, Instance> _instances; // Treat read-only, however not defined as such for performance
+    private readonly ConcurrentDictionary<Type, Instance> _instances;
+    private readonly Timer _cacheWriteTimer;
+
+    private Boolean IsDisposed { get; set; }
 
     public ProjectionStore(EventStore store, Action<ProjectionStoreConfiguration>? configure = null)
     {
         _store = store;
         configure?.Invoke(_configuration);
-        _instances = _configuration.Projections.ToDictionary(p => p.Key, p => new Instance(p.Value));
+        _instances = new(_configuration.Projections.ToDictionary(
+            p => p.Key,
+            p => new Instance())
+        );
 
         LoadRemoteCache();
-        // TODO: await WriteRemoteCacheIfDirty(cancellationToken).ConfigureAwait(false);
+
+        _cacheWriteTimer = new(_configuration.CacheUpdateInterval.TotalMilliseconds);
+        _cacheWriteTimer.Elapsed += (_, _) =>
+        {
+            WriteRemoteCacheIfDirtyCache();
+            _cacheWriteTimer.Start();
+        };
+        _cacheWriteTimer.AutoReset = false;
+        _cacheWriteTimer.Start();
     }
 
     public async Task<TProjection> Read<TProjection>(String aggregateId, CancellationToken cancellationToken = default) =>
@@ -72,24 +88,43 @@ public class ProjectionStore
 
     private void LoadRemoteCache()
     {
-        throw new NotImplementedException();
+        var serializer = new BoisLz4Serializer();
+        foreach (var (type, builder) in _configuration.Projections)
+        {
+            var blob = _store.UnderlyingContainerClient.GetBlobClient($"{_store.AggregateName}/projection/{builder.Id}.bois.lz4");
+            try
+            {
+                var content = blob.DownloadContent();
+                using var stream = content.Value.Content.ToStream();
+                var instance = serializer.Unpickle<Instance>(stream);
+                _instances[type] = instance;
+            }
+            catch (RequestFailedException ex) when (ex.ErrorCode == "BlobNotFound")
+            {
+            }
+        }
     }
 
-    private async Task WriteRemoteCacheIfDirty(CancellationToken cancellationToken)
+    private void WriteRemoteCacheIfDirtyCache()
     {
-        throw new NotImplementedException();
-    }
+        // TODO: If dirty
 
-    private async Task WriteCache(CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
+        var serializer = new BoisLz4Serializer();
+        foreach (var (type, instance) in _instances)
+        {
+            using var stream = new MemoryStream();
+            serializer.Pickle(instance, stream);
+            stream.Rewind();
+
+            var projectionId = _configuration.Projections[type].Id;
+
+            var blob = _store.UnderlyingContainerClient.GetBlobClient($"{_store.AggregateName}/projection/{projectionId}.bois.lz4");
+            blob.Upload(stream, overwrite: true);
+        }
     }
 
     private async Task LoadAnyNewEvents(CancellationToken cancellationToken)
     {
-        //https://github.com/salarcode/Bois
-        // Container.GetBlobClient($"{_aggregateName}/projection/{projectionKey}.bois.lz4");
-
         // TODO: Fetch new events
         // TODO: Regenerate index
         // TODO: If changed, trigger timer to update cache
@@ -101,5 +136,22 @@ public class ProjectionStore
         var type = typeof(TProjection);
         if (!_instances.TryGetValue(type, out var instance)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
         return instance;
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(Boolean disposing)
+    {
+        if (IsDisposed) return;
+        if (disposing)
+        {
+            _cacheWriteTimer.Dispose();
+        }
+
+        IsDisposed = true;
     }
 }
