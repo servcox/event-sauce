@@ -10,15 +10,15 @@ public sealed class ProjectionStoreConfiguration
         return this;
     }
 
-    private readonly Dictionary<Type, IProjectionBuilder> _projections = new();
-    public IReadOnlyDictionary<Type, IProjectionBuilder> Projections => _projections;
+    private readonly Dictionary<Type, IProjectionConfiguration> _projections = new();
+    public IReadOnlyDictionary<Type, IProjectionConfiguration> Projections => _projections;
 
-    public ProjectionStoreConfiguration DefineProjection<TProjection>(Int64 version, Action<SpecificProjectionConfiguration<TProjection>> build) where TProjection : new()
+    public ProjectionStoreConfiguration DefineProjection<TProjection>(Int64 version, Action<ProjectionConfiguration<TProjection>> build) where TProjection : new()
     {
         if (build is null) throw new ArgumentNullException(nameof(build));
 
         var type = typeof(TProjection);
-        var builder = new SpecificProjectionConfiguration<TProjection>(version);
+        var builder = new ProjectionConfiguration<TProjection>(version);
         build(builder);
         if (!_projections.TryAdd(type, builder)) throw new AlreadyExistsException();
         return this;
