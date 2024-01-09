@@ -73,12 +73,12 @@ public sealed class ProjectionWrapper : IDisposable
         projection.UnexpectedEvents.Should().Be(0);
     }
     
-    public BlobClient GetBlobClient(String projectionKey) =>
-        Container.GetBlobClient($"{_aggregateName}/projection/{projectionKey}.bois.lz4");
+    public BlobClient GetBlobClient() =>
+        Container.GetBlobClient($"{_aggregateName}/projection/{_projectionId}.bois.lz4");
 
     public void Dispose()
     {
-        GetBlobClient(_projectionId).DeleteIfExists();
+        GetBlobClient().DeleteIfExists();
     }
     
     private static String NewId() => Guid.NewGuid().ToString("N");

@@ -38,9 +38,13 @@ public class ProjectionStoreTests
     [Fact]
     public async Task CanReadLateEvent()
     {
-        throw new NotImplementedException();
+        using var wrapper = new ProjectionWrapper();
+        await wrapper.PopulateTestData();
+        await wrapper.Sut.Read<Cake>(wrapper.AggregateId1);
+        await wrapper.EventStore.WriteEvent(wrapper.AggregateId1, new CakeIced { Color = "BLACK" });
+        var projection = await wrapper.Sut.Read<Cake>(wrapper.AggregateId1);
+        projection.Color.Should().Be("BLACK");
     }
-    
     
     [Fact]
     public async Task CanLoadRemoteCache()
@@ -51,12 +55,10 @@ public class ProjectionStoreTests
     [Fact]
     public async Task CanWriteRemoteCache()
     {
-        throw new NotImplementedException();
-    }
-    
-    [Fact]
-    public async Task CanUpdateRemoteCache()
-    {
-        throw new NotImplementedException();
+        using var wrapper = new ProjectionWrapper(cfg => cfg.UpdateCacheEvery(TimeSpan.FromSeconds(1)));
+        await wrapper.PopulateTestData();
+        await Task.Delay(1500);
+        var exists = await wrapper.GetBlobClient().ExistsAsync();
+        exists.Value.Should().BeTrue();
     }
 }
