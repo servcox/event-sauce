@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
-using ServcoX.EventSauce.ConfigurationBuilders;
+using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.Models;
 using Stream = System.IO.Stream;
 

@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using ServcoX.EventSauce.ConfigurationBuilders;
+using ServcoX.EventSauce.Configurations;
 
 namespace ServcoX.EventSauce;
 

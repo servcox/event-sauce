@@ -3,7 +3,7 @@
 
 using ServcoX.EventSauce.Models;
 
-namespace ServcoX.EventSauce.ConfigurationBuilders;
+namespace ServcoX.EventSauce.Configurations;
 
 public sealed class SpecificProjectionConfiguration<TProjection>(Int64 version) : IProjectionBuilder where TProjection : new()
 {

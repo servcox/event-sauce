@@ -1,6 +1,6 @@
 using Azure.Storage.Blobs;
 using FluentAssertions;
-using ServcoX.EventSauce.ConfigurationBuilders;
+using ServcoX.EventSauce.Configurations;
 
 namespace ServcoX.EventSauce.Tests.Fixtures;
 

@@ -1,4 +1,4 @@
-namespace ServcoX.EventSauce.ConfigurationBuilders;
+namespace ServcoX.EventSauce.Configurations;
 
 public sealed class EventStoreConfiguration
 {
