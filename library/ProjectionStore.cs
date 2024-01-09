@@ -5,15 +5,22 @@ namespace ServcoX.EventSauce;
 
 public class ProjectionStore
 {
+    private sealed class Instance(IProjectionBuilder builder)
+    {
+        public readonly IProjectionBuilder Builder = builder;
+        public ConcurrentDictionary<String, ConcurrentDictionary<Object, List<String>>> Indexes = new(); // Field => Value => Id
+        public ConcurrentDictionary<String, Object> Records = new(); // Id => Projection
+    }
+
     private readonly EventStore _store;
-    private readonly ProjectionStoreConfiguration _storeConfiguration = new();
-    private readonly ConcurrentDictionary<Type, ConcurrentDictionary<String, Object>> _projections = new(); // ProjectionType => ID => Body
-    private readonly ConcurrentDictionary<Type, ConcurrentDictionary<String, ConcurrentDictionary<Object, List<String>>>> _indexes = new(); // ProjectionType => Field => Value => ID
+    private readonly ProjectionStoreConfiguration _configuration = new();
+    private readonly Dictionary<Type, Instance> _instances; // Treat read-only, however not defined as such for performance
 
     public ProjectionStore(EventStore store, Action<ProjectionStoreConfiguration>? configure = null)
     {
         _store = store;
-        configure?.Invoke(_storeConfiguration);
+        configure?.Invoke(_configuration);
+        _instances = _configuration.Projections.ToDictionary(p => p.Key, p => new Instance(p.Value));
 
         LoadRemoteCache();
         // TODO: await WriteRemoteCacheIfDirty(cancellationToken).ConfigureAwait(false);
@@ -26,8 +33,8 @@ public class ProjectionStore
     {
         await LoadAnyNewEvents(cancellationToken).ConfigureAwait(false);
 
-        var projections = ProjectionOfType<TProjection>();
-        if (!projections.TryGetValue(aggregateId, out var projection)) return default;
+        var instance = InstanceOfType<TProjection>();
+        if (!instance.Records.TryGetValue(aggregateId, out var projection)) return default;
         return (TProjection)projection;
     }
 
@@ -35,8 +42,8 @@ public class ProjectionStore
     {
         await LoadAnyNewEvents(cancellationToken).ConfigureAwait(false);
 
-        var projections = ProjectionOfType<TProjection>();
-        return projections.Values.Cast<TProjection>().ToList();
+        var instance = InstanceOfType<TProjection>();
+        return instance.Records.Values.Cast<TProjection>().ToList();
     }
 
     public Task<List<TProjection>> Query<TProjection>(String key, Object value, CancellationToken cancellationToken = default) =>
@@ -48,21 +55,19 @@ public class ProjectionStore
 
         await LoadAnyNewEvents(cancellationToken).ConfigureAwait(false);
 
-        var type = typeof(TProjection);
-        if (!_indexes.TryGetValue(type, out var indexes)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
+        var instance = InstanceOfType<TProjection>();
 
         List<String>? candidate = null;
         foreach (var q in query)
         {
-            if (!indexes.TryGetValue(q.Key, out var index)) throw new MissingIndexException($"No index defined on {type.FullName}.{q.Key}");
+            if (!instance.Indexes.TryGetValue(q.Key, out var index)) throw new MissingIndexException($"No index defined on {typeof(TProjection).FullName}.{q.Key}");
             if (!index.TryGetValue(q.Value, out var matches)) return [];
 
             candidate = candidate is null ? matches : candidate.Intersect(matches).ToList();
             if (candidate.Count == 0) return [];
         }
 
-        var projections = ProjectionOfType<TProjection>();
-        return candidate is null ? [] : candidate.Select(id => (TProjection)projections[id]).ToList();
+        return candidate is null ? [] : candidate.Select(id => (TProjection)instance.Records[id]).ToList();
     }
 
     private void LoadRemoteCache()
@@ -84,17 +89,17 @@ public class ProjectionStore
     {
         //https://github.com/salarcode/Bois
         // Container.GetBlobClient($"{_aggregateName}/projection/{projectionKey}.bois.lz4");
-        
+
         // TODO: Fetch new events
         // TODO: Regenerate index
         // TODO: If changed, trigger timer to update cache
         throw new NotImplementedException();
     }
-    
-    private ConcurrentDictionary<String, Object> ProjectionOfType<TProjection>()
+
+    private Instance InstanceOfType<TProjection>()
     {
         var type = typeof(TProjection);
-        if (!_projections.TryGetValue(type, out var projections)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
-        return projections;
+        if (!_instances.TryGetValue(type, out var instance)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
+        return instance;
     }
 }
