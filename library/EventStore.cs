@@ -128,10 +128,10 @@ public sealed class EventStore : IDisposable, IEventStore
                 Body = bodySerialized,
                 CreatedBy = createdBy,
             };
-        });
+        }).ToList();
 
-        await _eventTable.CreateMany(eventRecords, cancellationToken).ConfigureAwait(false); // Must be first to avoid concurrency issues
         await _streamTable.Update(streamRecord, cancellationToken).ConfigureAwait(false);
+        await _eventTable.CreateMany(eventRecords, cancellationToken).ConfigureAwait(false); // Must be last so that an interrupted write doesn't break the MaxVersion header
         if (_configuration.ShouldRefreshProjectionsAfterWriting) await TryRefreshProjections(streamRecord, cancellationToken).ConfigureAwait(false);
     }
 
