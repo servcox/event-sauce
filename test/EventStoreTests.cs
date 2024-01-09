@@ -1,8 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
 using FluentAssertions;
+using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.Tests.Fixtures;
-using Event = ServcoX.EventSauce.Events.Event;
+using Event = ServcoX.EventSauce.Models.Event;
 
 namespace ServcoX.EventSauce.Tests;
 
@@ -11,11 +12,11 @@ public class EventStoreTests
     [Fact]
     public async Task CanWrite()
     {
-        using var wrapper = new Wrapper();
+        using var wrapper = new EventWrapper();
         var aggregateId = NewId();
-        await wrapper.Sut.Write(aggregateId, TestPayloads.A, TestMetadata.A);
-        await wrapper.Sut.Write(aggregateId, TestPayloads.B, TestMetadata.B);
-        await wrapper.Sut.Write(aggregateId, TestPayloads.C, TestMetadata.C);
+        await wrapper.Sut.WriteEvent(aggregateId, TestPayloads.A, TestMetadata.A);
+        await wrapper.Sut.WriteEvent(aggregateId, TestPayloads.B, TestMetadata.B);
+        await wrapper.Sut.WriteEvent(aggregateId, TestPayloads.C, TestMetadata.C);
 
         using var reader = wrapper.GetSliceStream(0);
         AssertEvent(reader, aggregateId, TestPayloads.A, TestMetadata.A);
@@ -23,13 +24,12 @@ public class EventStoreTests
         AssertEvent(reader, aggregateId, TestPayloads.C, TestMetadata.C);
     }
 
-
     [Fact]
     public async Task CanWriteMultiples()
     {
-        using var wrapper = new Wrapper();
+        using var wrapper = new EventWrapper();
         var aggregateId = NewId();
-        await wrapper.Sut.Write(new List<Event>
+        await wrapper.Sut.WriteEvents(new List<Event>
         {
             new(aggregateId, TestPayloads.A, TestMetadata.A),
             new(aggregateId, TestPayloads.B, TestMetadata.B),
@@ -45,16 +45,16 @@ public class EventStoreTests
     [Fact]
     public async Task CanWriteOverlapping()
     {
-        using var wrapper = new Wrapper();
+        using var wrapper = new EventWrapper();
         wrapper.PrepareForOverlappingWrite();
 
         var aggregateId = NewId();
-        await wrapper.Sut.Write(aggregateId, TestPayloads.A, TestMetadata.A);
-        await wrapper.Sut.Write(aggregateId, TestPayloads.B, TestMetadata.B);
-        await wrapper.Sut.Write(aggregateId, TestPayloads.C, TestMetadata.C);
+        await wrapper.Sut.WriteEvent(aggregateId, TestPayloads.A, TestMetadata.A);
+        await wrapper.Sut.WriteEvent(aggregateId, TestPayloads.B, TestMetadata.B);
+        await wrapper.Sut.WriteEvent(aggregateId, TestPayloads.C, TestMetadata.C);
 
         using var reader0 = wrapper.GetSliceStream(0);
-        for (var i = 0; i < Wrapper.MaxBlocksPerSlice - 1; i++) reader0.ReadLine()!.Should().BeEmpty();
+        for (var i = 0; i < EventWrapper.MaxBlocksPerSlice - 1; i++) reader0.ReadLine()!.Should().BeEmpty();
         AssertEvent(reader0, aggregateId, TestPayloads.A, TestMetadata.A);
 
         using var reader1 = wrapper.GetSliceStream(1);
@@ -65,10 +65,10 @@ public class EventStoreTests
     [Fact]
     public async Task CanRead()
     {
-        using var wrapper = new Wrapper();
+        using var wrapper = new EventWrapper();
         wrapper.AppendLine(0, TestEvents.AEncoded);
 
-        var events = (await wrapper.Sut.Read()).ToList();
+        var events = await wrapper.Sut.ReadEvents(0);
         events.Count.Should().Be(1);
         AssertEvent(events[0], TestEvents.A, 0, 0, 108);
     }
@@ -76,12 +76,12 @@ public class EventStoreTests
     [Fact]
     public async Task CanReadMultiples()
     {
-        using var wrapper = new Wrapper();
+        using var wrapper = new EventWrapper();
         wrapper.AppendLine(0, TestEvents.AEncoded);
         wrapper.AppendLine(0, TestEvents.BEncoded);
         wrapper.AppendLine(0, TestEvents.CEncoded);
 
-        var events = (await wrapper.Sut.Read()).ToList();
+        var events = await wrapper.Sut.ReadEvents(0);
         events.Count.Should().Be(3);
         AssertEvent(events[0], TestEvents.A, 0, 0, 108);
         AssertEvent(events[1], TestEvents.B, 0, 108, 229);
@@ -89,28 +89,14 @@ public class EventStoreTests
     }
 
     [Fact]
-    public async Task CanReadWithMax()
-    {
-        using var wrapper = new Wrapper();
-        wrapper.AppendLine(0, TestEvents.AEncoded);
-        wrapper.AppendLine(0, TestEvents.BEncoded);
-        wrapper.AppendLine(0, TestEvents.CEncoded);
-
-        var events = (await wrapper.Sut.Read(maxEvents: 2)).ToList();
-        events.Count.Should().Be(2);
-        AssertEvent(events[0], TestEvents.A, 0, 0, 108);
-        AssertEvent(events[1], TestEvents.B, 0, 108, 229);
-    }
-
-    [Fact]
     public async Task CanReadWithOffset()
     {
-        using var wrapper = new Wrapper();
+        using var wrapper = new EventWrapper();
         wrapper.AppendLine(0, TestEvents.AEncoded);
         wrapper.AppendLine(0, TestEvents.BEncoded);
         wrapper.AppendLine(0, TestEvents.CEncoded);
 
-        var events = (await wrapper.Sut.Read(startSliceOffset: 108)).ToList();
+        var events = await wrapper.Sut.ReadEvents(0, 108);
         events.Count.Should().Be(2);
         AssertEvent(events[0], TestEvents.B, 0, 108, 229);
         AssertEvent(events[1], TestEvents.C, 0, 229, 345);
@@ -119,18 +105,37 @@ public class EventStoreTests
     [Fact]
     public async Task CanReadOverlappingSlice()
     {
-        using var wrapper = new Wrapper();
+        using var wrapper = new EventWrapper();
         wrapper.PrepareForOverlappingWrite();
 
         wrapper.AppendLine(0, TestEvents.AEncoded);
         wrapper.AppendLine(1, TestEvents.BEncoded);
         wrapper.AppendLine(1, TestEvents.CEncoded);
 
-        var events = (await wrapper.Sut.Read()).ToList();
-        events.Count.Should().Be(3);
-        AssertEvent(events[0], TestEvents.A, 0, Wrapper.MaxBlocksPerSlice - 1, Wrapper.MaxBlocksPerSlice + 107);
-        AssertEvent(events[1], TestEvents.B, 1, 0, 121);
-        AssertEvent(events[2], TestEvents.C, 1, 121, 237);
+        var events = await wrapper.Sut.ReadEvents(0);
+        events.Count.Should().Be(1);
+        AssertEvent(events[0], TestEvents.A, 0, EventWrapper.MaxBlocksPerSlice - 1, EventWrapper.MaxBlocksPerSlice + 107);
+        
+        events = await wrapper.Sut.ReadEvents(1);
+        events.Count.Should().Be(2);
+        AssertEvent(events[0], TestEvents.B, 1, 0, 121);
+        AssertEvent(events[1], TestEvents.C, 1, 121, 237);
+    }
+    
+    [Fact]
+    public async Task CanListSLices()
+    {
+        using var wrapper = new EventWrapper();
+        wrapper.PrepareForOverlappingWrite();
+
+        wrapper.AppendLine(0, TestEvents.AEncoded);
+        wrapper.AppendLine(1, TestEvents.BEncoded);
+        wrapper.AppendLine(1, TestEvents.CEncoded);
+
+        var slices = await wrapper.Sut.ListSlices();
+        slices.Count.Should().Be(2);
+        slices[0].Id.Should().Be(0);
+        slices[1].Id.Should().Be(1);
     }
 
     private static void AssertEvent(StreamReader reader, String aggregateId, Object payload, Dictionary<String, String> metadata)
@@ -146,14 +151,14 @@ public class EventStoreTests
         tokens[4].Should().BeEquivalentTo(JsonSerializer.Serialize(metadata));
     }
 
-    private static void AssertEvent(IEgressEvent actual, IEgressEvent expected, UInt64 slice, UInt64 offset, UInt64 nextOffset)
+    private static void AssertEvent(IEgressEvent actual, IEgressEvent expected, Int64 sliceId, Int64 offset, Int64 nextOffset)
     {
         actual.AggregateId.Should().Be(expected.AggregateId);
         actual.Type.Should().BeEquivalentTo(expected.Type);
         actual.Payload.Should().Be(expected.Payload);
         actual.Metadata.Should().BeEquivalentTo(expected.Metadata);
         actual.At.Should().Be(expected.At);
-        actual.Slice.Should().Be(slice);
+        actual.SliceId.Should().Be(sliceId);
         actual.Offset.Should().Be(offset);
         actual.NextOffset.Should().Be(nextOffset);
     }

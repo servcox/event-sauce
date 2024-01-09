@@ -1,3 +1,4 @@
+using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.Tests.Fixtures;
 
 namespace ServcoX.EventSauce.Tests.TestData;
@@ -11,7 +12,7 @@ public static class TestEvents
         Payload = TestPayloads.A,
         Metadata = TestMetadata.A,
         At = new(2000, 1, 1, 1, 1, 1),
-        Slice = 0,
+        SliceId = 0,
         Offset = 0,
         NextOffset = 0,
     };
@@ -23,7 +24,7 @@ public static class TestEvents
         Payload = TestPayloads.B,
         Metadata = TestMetadata.B,
         At = new(2000, 1, 1, 1, 1, 1),
-        Slice = 0,
+        SliceId = 0,
         Offset = 0,
         NextOffset = 0,
     };
@@ -35,7 +36,7 @@ public static class TestEvents
         Payload = TestPayloads.C,
         Metadata = TestMetadata.C,
         At = new(2000, 1, 1, 1, 1, 1),
-        Slice = 0,
+        SliceId = 0,
         Offset = 0,
         NextOffset = 0,
     };

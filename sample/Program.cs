@@ -10,13 +10,16 @@ await container.CreateIfNotExistsAsync();
 var eventStore = new EventStore(aggregateName, container);
 
 var aggregateId = Guid.NewGuid().ToString("N");
-await eventStore.Write(aggregateId, new CakeBaked());
-await eventStore.Write(aggregateId, new CakeIced("BLUE"));
-await eventStore.Write(aggregateId, new CakeCut(3));
+await eventStore.WriteEvent(aggregateId, new CakeBaked());
+await eventStore.WriteEvent(aggregateId, new CakeIced("BLUE"));
+await eventStore.WriteEvent(aggregateId, new CakeCut(3));
 
-foreach (var evt in await eventStore.Read())
+foreach (var slice in await eventStore.ListSlices())
 {
-    Console.WriteLine($"{evt.Type}: {evt.Payload}");
+    foreach (var evt in await eventStore.ReadEvents(slice.Id))
+    {
+        Console.WriteLine($"{evt.Type}: {evt.Payload}");
+    }
 }
 
 var projectionStore = new ProjectionStore(eventStore, cfg => cfg

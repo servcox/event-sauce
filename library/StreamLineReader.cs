@@ -10,8 +10,8 @@ public class StreamLineReader(Stream stream)
     private Int32 _bufferCount;
     private Int32 _bufferOffset;
 
-    public UInt64 Position { get; private set; }
-    public UInt32 Line { get; private set; }
+    public Int64 Position { get; private set; }
+    public Int32 Line { get; private set; }
 
     public String? TryReadLine()
     {

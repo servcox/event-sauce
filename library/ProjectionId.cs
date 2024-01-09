@@ -5,7 +5,7 @@ namespace ServcoX.EventSauce;
 
 public static class ProjectionId
 {
-    public static String Compute(Type type, UInt32 version)
+    public static String Compute(Type type, Int64 version)
     {
         if (type is null) throw new ArgumentNullException(nameof(type));
         

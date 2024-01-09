@@ -1,4 +1,4 @@
-namespace ServcoX.EventSauce.Events;
+namespace ServcoX.EventSauce.Models;
 
 public interface IEvent
 {

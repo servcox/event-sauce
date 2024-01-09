@@ -6,40 +6,36 @@ namespace ServcoX.EventSauce;
 public class ProjectionStore
 {
     private readonly EventStore _store;
-    private readonly BaseProjectionConfiguration _configuration = new();
+    private readonly ProjectionStoreConfiguration _storeConfiguration = new();
     private readonly ConcurrentDictionary<Type, ConcurrentDictionary<String, Object>> _projections = new(); // ProjectionType => ID => Body
     private readonly ConcurrentDictionary<Type, ConcurrentDictionary<String, ConcurrentDictionary<Object, List<String>>>> _indexes = new(); // ProjectionType => Field => Value => ID
 
-    public ProjectionStore(EventStore store, Action<BaseProjectionConfiguration>? configure = null)
+    public ProjectionStore(EventStore store, Action<ProjectionStoreConfiguration>? configure = null)
     {
         _store = store;
-        configure?.Invoke(_configuration);
+        configure?.Invoke(_storeConfiguration);
 
         LoadRemoteCache();
+        // TODO: await WriteRemoteCacheIfDirty(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<TProjection> Read<TProjection>(String streamId, CancellationToken cancellationToken = default) =>
-        await TryRead<TProjection>(streamId, cancellationToken).ConfigureAwait(false) ?? throw new NotFoundException();
+    public async Task<TProjection> Read<TProjection>(String aggregateId, CancellationToken cancellationToken = default) =>
+        await TryRead<TProjection>(aggregateId, cancellationToken).ConfigureAwait(false) ?? throw new NotFoundException();
 
-    public async Task<TProjection?> TryRead<TProjection>(String streamId, CancellationToken cancellationToken = default)
+    public async Task<TProjection?> TryRead<TProjection>(String aggregateId, CancellationToken cancellationToken = default)
     {
         await LoadAnyNewEvents(cancellationToken).ConfigureAwait(false);
-        await WriteRemoteCacheIfDirty(cancellationToken).ConfigureAwait(false);
 
-        var type = typeof(TProjection);
-        if (!_projections.TryGetValue(type, out var projections)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
-        if (!projections.TryGetValue(streamId, out var projection)) return default;
+        var projections = ProjectionOfType<TProjection>();
+        if (!projections.TryGetValue(aggregateId, out var projection)) return default;
         return (TProjection)projection;
     }
 
     public async Task<List<TProjection>> List<TProjection>(CancellationToken cancellationToken = default)
     {
         await LoadAnyNewEvents(cancellationToken).ConfigureAwait(false);
-        await WriteRemoteCacheIfDirty(cancellationToken).ConfigureAwait(false);
 
-        var type = typeof(TProjection);
-        if (!_projections.TryGetValue(type, out var projections)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
-
+        var projections = ProjectionOfType<TProjection>();
         return projections.Values.Cast<TProjection>().ToList();
     }
 
@@ -51,7 +47,6 @@ public class ProjectionStore
         if (query is null) throw new ArgumentNullException(nameof(query));
 
         await LoadAnyNewEvents(cancellationToken).ConfigureAwait(false);
-        await WriteRemoteCacheIfDirty(cancellationToken).ConfigureAwait(false);
 
         var type = typeof(TProjection);
         if (!_indexes.TryGetValue(type, out var indexes)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
@@ -66,7 +61,7 @@ public class ProjectionStore
             if (candidate.Count == 0) return [];
         }
 
-        if (!_projections.TryGetValue(type, out var projections)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
+        var projections = ProjectionOfType<TProjection>();
         return candidate is null ? [] : candidate.Select(id => (TProjection)projections[id]).ToList();
     }
 
@@ -87,9 +82,19 @@ public class ProjectionStore
 
     private async Task LoadAnyNewEvents(CancellationToken cancellationToken)
     {
+        //https://github.com/salarcode/Bois
+        // Container.GetBlobClient($"{_aggregateName}/projection/{projectionKey}.bois.lz4");
+        
         // TODO: Fetch new events
         // TODO: Regenerate index
         // TODO: If changed, trigger timer to update cache
         throw new NotImplementedException();
+    }
+    
+    private ConcurrentDictionary<String, Object> ProjectionOfType<TProjection>()
+    {
+        var type = typeof(TProjection);
+        if (!_projections.TryGetValue(type, out var projections)) throw new MissingProjectionException($"No projection defined for {type.FullName}");
+        return projections;
     }
 }

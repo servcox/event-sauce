@@ -1,10 +1,10 @@
 namespace ServcoX.EventSauce.ConfigurationBuilders;
 
-public sealed class BaseProjectionConfiguration
+public sealed class ProjectionStoreConfiguration
 {
     public TimeSpan CacheUpdateInterval { get; private set; }
 
-    public BaseProjectionConfiguration UpdateCacheEvery(TimeSpan interval)
+    public ProjectionStoreConfiguration UpdateCacheEvery(TimeSpan interval)
     {
         CacheUpdateInterval = interval;
         return this;
@@ -13,7 +13,7 @@ public sealed class BaseProjectionConfiguration
     private readonly Dictionary<Type, IProjectionBuilder> _projections = new();
     public IReadOnlyDictionary<Type, IProjectionBuilder> Projections => _projections;
 
-    public BaseProjectionConfiguration DefineProjection<TProjection>(UInt32 version, Action<SpecificProjectionConfiguration<TProjection>> build) where TProjection : new()
+    public ProjectionStoreConfiguration DefineProjection<TProjection>(Int64 version, Action<SpecificProjectionConfiguration<TProjection>> build) where TProjection : new()
     {
         if (build is null) throw new ArgumentNullException(nameof(build));
 

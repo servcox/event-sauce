@@ -1,9 +1,11 @@
 // ReSharper disable UnusedMethodReturnValue.Global
 // ReSharper disable ClassNeverInstantiated.Global
 
+using ServcoX.EventSauce.Models;
+
 namespace ServcoX.EventSauce.ConfigurationBuilders;
 
-public sealed class SpecificProjectionConfiguration<TProjection>(UInt32 version) : IProjectionBuilder where TProjection : new()
+public sealed class SpecificProjectionConfiguration<TProjection>(Int64 version) : IProjectionBuilder where TProjection : new()
 {
     public String Id { get; } = ProjectionId.Compute(typeof(TProjection), version);
 

@@ -5,38 +5,38 @@ using ServcoX.EventSauce.Extensions;
 
 namespace ServcoX.EventSauce.Tests.Fixtures;
 
-public sealed class Wrapper : IDisposable
+public sealed class EventWrapper : IDisposable
 {
     private const String ConnectionString = "UseDevelopmentStorage=true;";
     public BlobContainerClient Container { get; }
     public EventStore Sut { get; }
-    private readonly String _topic;
+    private readonly String _aggregateName;
 
     public const Int32 MaxBlocksPerSlice = 10;
 
-    public Wrapper(Action<EventStoreConfiguration>? builder = null)
+    public EventWrapper(Action<EventStoreConfiguration>? builder = null)
     {
         var containerName = "unit-tests";
         Container = new(ConnectionString, containerName);
         Container.CreateIfNotExists();
 
-        _topic = Guid.NewGuid().ToString("N").ToUpperInvariant();
-        Sut = new(_topic, Container, cfg =>
+        _aggregateName = Guid.NewGuid().ToString("N").ToUpperInvariant();
+        Sut = new(_aggregateName, Container, cfg =>
         {
             cfg.UseTargetBlocksPerSlice(MaxBlocksPerSlice);
             builder?.Invoke(cfg);
         });
     }
 
-    public AppendBlobClient GetSliceClient(UInt64 slice) =>
-        Container.GetAppendBlobClient($"{_topic}.{slice.ToPaddedString()}.tsv");
+    public AppendBlobClient GetSliceClient(Int64 sliceId) =>
+        Container.GetAppendBlobClient($"{_aggregateName}/event/{_aggregateName}.{sliceId.ToPaddedString()}.tsv");
 
-    public StreamReader GetSliceStream(UInt64 slice) =>
-        new(GetSliceClient(slice).DownloadContent().Value.Content.ToStream());
+    public StreamReader GetSliceStream(Int64 sliceId) =>
+        new(GetSliceClient(sliceId).DownloadContent().Value.Content.ToStream());
 
-    public void AppendLine(UInt64 slice, String block)
+    public void AppendLine(Int64 sliceId, String block)
     {
-        var blob = GetSliceClient(slice);
+        var blob = GetSliceClient(sliceId);
         blob.CreateIfNotExists();
         blob.AppendBlock(block + "\n");
     }
