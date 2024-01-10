@@ -11,41 +11,38 @@ Grab it from NuGet from `dotnet add package ServcoX.EventSauce` or `dotnet add p
 # Basic usage
 Define your events like this:
 ```c#
-public readonly record struct BakedCake : IEventBody;
-public readonly record struct IcedCake(String Color) : IEventBody;
-public readonly record struct CutCake(Int32 Slices) : IEventBody;
+public readonly record struct CakeBaked;
+public readonly record struct CakeIced(String Color);
+public readonly record struct CakeCut(Int32 Slices);
 ```
 
 Connect to your event store like this:
 ```c#
-var eventStore = new EventStore("=== connection string goes here ===");
+var eventStore = new EventStore(connectionString: "UseDevelopmentStorage=true;", containerName: "EventSauce", aggregateName: "CAKE");
 ```
 
 Or if you're using Microsoft DI, then you can use this:
 ```c#
-builder.Services.AddEventSauce("=== connection string goes here ===");
+builder.Services.AddEventSauce(connectionString: "UseDevelopmentStorage=true;", containerName: "EventSauce", aggregateName: "CAKE");
 ```
 
-Create a stream and write events like this:
+Write events like this:
 ```c#
-var streamType = "CAKE";
-var streamId = Guid.NewGuid().ToString();
-var userId = Guid.NewGuid().ToString();
-await eventStore.CreateStream(streamId, streamType);
-await eventStore.WriteEvents(streamId, new BakedCake(), userId);
-await eventStore.WriteEvents(streamId, new IcedCake("BLUE"), userId);
-await eventStore.WriteEvents(streamId, new CutCake(3), userId);
-```
-
-Get a list of streams you've already created like so:
-```c#
-foreach (var stream in eventStore.ListStreams(streamType)) Console.WriteLine(stream.Id);
+var aggregateId = Guid.NewGuid().ToString("N");
+await store.WriteEvent(aggregateId, new CakeBaked());
+await store.WriteEvent(aggregateId, new CakeIced("BLUE"));
+await store.WriteEvent(aggregateId, new CakeCut(3));
 ```
 
 And finally, read events back like here:
 ```c#
-var minVersion = 0; // <== Can pick a greater version to only read new events
-foreach (var evt in eventStore.ReadEvents(streamId, minVersion)) Console.WriteLine(evt.Version + ": " + evt.Body);
+foreach (var slice in await store.ListSlices())
+{
+    foreach (var evt in await store.ReadEvents(slice.Id))
+    {
+        Console.WriteLine($"{evt.Type}: {evt.Payload}");
+    }
+}
 ```
 
 # Projections
@@ -55,36 +52,33 @@ Create a projection like this:
 ```c#
 public record Cake
 {
-    public String Id { get; set; }
+    public String Id { get; set; } = String.Empty;
     public Int32 Slices { get; set; }
-    public String Color { get; set; }
+    public String Color { get; set; } = String.Empty;
     public DateTime LastUpdatedAt { get; set; }
 }
 ```
 
 When you're creating your store, define how to build the projection:
 ```c#
-var store = new EventStore(connectionString, cfg => cfg
-    .RefreshProjectionsAfterWriting()
-    .DefineProjection<Cake>(streamType: "CAKE", version: 1, builder => builder
-        .OnCreation((projection, id) => projection.Id = id)
-        .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
-        .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
-        .OnUnexpectedEvent((projection, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered")) // Called for any event that doesn't have a specific handler
-        .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.CreatedAt) // Called for all events - expected and unexpected
-        .Index(nameof(Cake.Color), projection => projection.Color)
-    )
+var cakeProjection = store.Project<Cake>(version: 1, builder => builder
+    .OnCreation((projection, id) => projection.Id = id)
+    .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
+    .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
+    .OnUnexpectedEvent((projection, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered")) // Called for any event that doesn't have a specific handler
+    .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.At) // Called for all events - expected and unexpected
+    .IndexField(nameof(Cake.Color))
 );
 ```
 
 Then simply read the projection like this:
 ```c#
-var projection = await store.ReadProjection<Cake>(streamId);
+var aggregate = await cakeProjection.Read(aggregateId);
 ```
 
 Or query on a field that has been indexed (see `.Index` above):
 ```c#
-var projections = store.ListProjections<Cake>(nameof(Cake.Color), "BLUE");
+var aggregates = cakeProjection.Query(nameof(Cake.Color), "BLUE");
 ```
 
 When you query a projection it will play out all events that have occured since the last query using the
