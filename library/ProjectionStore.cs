@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using Azure;
 using Salar.Bois.LZ4;
 using ServcoX.EventSauce.Configurations;
@@ -26,7 +27,7 @@ public class ProjectionStore : IDisposable
         configure?.Invoke(_configuration);
         _instances = new(_configuration.Projections.ToDictionary(
             p => p.Key,
-            p => new Instance(p.Value))
+            _ => new Instance())
         );
 
         LoadRemoteCache();
@@ -111,10 +112,11 @@ public class ProjectionStore : IDisposable
                 if (localEnd >= remoteEnd) continue;
 
                 var events = await _store.ReadEvents(sliceId, localEnd, remoteEnd, cancellationToken).ConfigureAwait(false);
-                foreach (var (_, instance) in _instances)
+                foreach (var (type, instance) in _instances)
                 {
-                    instance.Apply(events);
-                    instance.Reindex();
+                    var configuration = _configuration.Projections[type];
+                    ProjectEvents(instance.Aggregates, events, configuration);
+                    instance.Indexes = GenerateIndex(instance.Aggregates, configuration);
                 }
 
                 _localEnds[sliceId] = remoteEnd;
@@ -125,6 +127,59 @@ public class ProjectionStore : IDisposable
         {
             _loadLock.Release();
         }
+    }
+
+
+    private static readonly EventTypeResolver EventTypeResolver = new();
+
+    public static void ProjectEvents(ConcurrentDictionary<String, Object> aggregates, List<IEgressEvent> events, IProjectionConfiguration configuration)
+    {
+        if (aggregates is null) throw new ArgumentNullException(nameof(aggregates));
+        if (events is null) throw new ArgumentNullException(nameof(events));
+        if (configuration is null) throw new ArgumentNullException(nameof(configuration));
+
+        foreach (var evt in events)
+        {
+            if (!aggregates.TryGetValue(evt.AggregateId, out var aggregate))
+            {
+                aggregates[evt.AggregateId] = aggregate = Activator.CreateInstance(configuration.Type)!;
+                configuration.CreationHandler.Invoke(aggregate, evt.AggregateId);
+            }
+
+            var eventType = EventTypeResolver.TryDecode(evt.Type);
+            if (eventType is not null && configuration.SpecificEventHandlers.TryGetValue(eventType, out var handlers))
+            {
+                handlers.Invoke(aggregate, evt.Payload, evt); // TODO: test
+            }
+            else
+            {
+                configuration.UnexpectedEventHandler.Invoke(aggregate, evt);
+            }
+
+            configuration.AnyEventHandler.Invoke(aggregate, evt);
+        }
+    }
+
+    public static Dictionary<String, Dictionary<Object, List<String>>> GenerateIndex(ConcurrentDictionary<String, Object> aggregates, IProjectionConfiguration configuration)
+    {
+        if (aggregates is null) throw new ArgumentNullException(nameof(aggregates));
+        if (configuration is null) throw new ArgumentNullException(nameof(configuration));
+
+        var indexes = new Dictionary<String, Dictionary<Object, List<String>>>(); // Field => Value => Id
+        foreach (var (fieldName, method) in configuration.Indexes)
+        {
+            var index = indexes[fieldName] = new(); // Value => Id
+
+            foreach (var (id, aggregate) in aggregates)
+            {
+                var fieldValue = method.Invoke(aggregate, null);
+                if (fieldValue is null) continue; // Index does not currently support NULLs
+                if (!index.TryGetValue(fieldValue, out var ids)) ids = index[fieldValue] = [];
+                ids.Add(id);
+            }
+        }
+
+        return indexes;
     }
 
     private void LoadRemoteCache()
@@ -191,54 +246,9 @@ public class ProjectionStore : IDisposable
         _isDisposed = true;
     }
 
-    private sealed class Instance(IProjectionConfiguration configuration)
+    private sealed class Instance
     {
-        private static readonly EventTypeResolver EventTypeResolver = new();
-
         public Dictionary<String, Dictionary<Object, List<String>>> Indexes = new(); // Field => Value => Id
         public readonly ConcurrentDictionary<String, Object> Aggregates = new(); // Id => Projection
-
-        public void Apply(List<IEgressEvent> events)
-        {
-            foreach (var evt in events)
-            {
-                if (!Aggregates.TryGetValue(evt.AggregateId, out var aggregate))
-                {
-                    Aggregates[evt.AggregateId] = aggregate = Activator.CreateInstance(configuration.Type)!;
-                    configuration.CreationHandler.Invoke(aggregate, evt.AggregateId );
-                }
-
-                var eventType = EventTypeResolver.TryDecode(evt.Type);
-                if (eventType is not null && configuration.SpecificEventHandlers.TryGetValue(eventType, out var handlers))
-                {
-                    handlers.Invoke(aggregate, evt.Payload, evt); // TODO: test
-                }
-                else
-                {
-                    configuration.UnexpectedEventHandler.Invoke(aggregate, evt);
-                }
-
-                configuration.AnyEventHandler.Invoke(aggregate, evt);
-            }
-        }
-
-        public void Reindex()
-        {
-            var indexes = new Dictionary<String, Dictionary<Object, List<String>>>(); // Field => Value => Id
-            foreach (var (fieldName, method) in configuration.Indexes)
-            {
-                var index = indexes[fieldName] = new(); // Value => Id
-
-                foreach (var (id, aggregate) in Aggregates)
-                {
-                    var fieldValue = method.Invoke(aggregate, null);
-                    if (fieldValue is null) continue; // Index does not currently support NULLs
-                    if (!index.TryGetValue(fieldValue, out var ids)) ids = index[fieldValue] = [];
-                    ids.Add(id);
-                }
-            }
-
-            Indexes = indexes;
-        }
     }
 }
