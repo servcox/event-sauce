@@ -101,7 +101,7 @@ public class ProjectionStore : IDisposable
 
     public async Task Sync(CancellationToken cancellationToken = default)
     {
-        if (_configuration.SyncBeforeReadEnabled) await _loadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _loadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var slices = await _store.ListSlices().ConfigureAwait(false);

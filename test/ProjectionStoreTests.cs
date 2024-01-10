@@ -13,7 +13,7 @@ public class ProjectionStoreTests
         var projection = await wrapper.Sut.Read<Cake>(wrapper.AggregateId1);
         wrapper.Assert1(projection);
     }
-    
+
     [Fact]
     public async Task CanList()
     {
@@ -45,20 +45,19 @@ public class ProjectionStoreTests
         var projection = await wrapper.Sut.Read<Cake>(wrapper.AggregateId1);
         projection.Color.Should().Be("BLACK");
     }
-    
+
     // TODO: Test all types of syncinc
-    
+
     [Fact]
     public async Task CanLoadRemoteCache()
     {
         throw new NotImplementedException();
     }
-    
+
     [Fact]
     public async Task CanWriteRemoteCache()
     {
-        using var wrapper = new ProjectionWrapper(cfg => cfg.WriteRemoteCacheEvery(TimeSpan.FromSeconds(1)));
-        await wrapper.PopulateTestData();
+        using var wrapper = new ProjectionWrapper(cfg => cfg.WriteRemoteCacheEvery(TimeSpan.FromSeconds(1)), prePopulate: true);
         await Task.Delay(1500);
         var exists = await wrapper.GetBlobClient().ExistsAsync();
         exists.Value.Should().BeTrue();

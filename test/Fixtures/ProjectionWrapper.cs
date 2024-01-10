@@ -22,7 +22,7 @@ public sealed class ProjectionWrapper : IDisposable
     public readonly String AggregateId2 = NewId();
     private readonly String _projectionId;
     
-    public ProjectionWrapper(Action<ProjectionStoreConfiguration>? builder = null)
+    public ProjectionWrapper(Action<ProjectionStoreConfiguration>? builder = null, Boolean prePopulate = false)
     {
         var containerName = "unit-tests";
         Container = new(ConnectionString, containerName);
@@ -32,6 +32,9 @@ public sealed class ProjectionWrapper : IDisposable
         _projectionId = ProjectionId.Compute(typeof(Cake), version);
         _aggregateName = Guid.NewGuid().ToString("N").ToUpperInvariant();
         EventStore = new(_aggregateName, Container, cfg => { cfg.UseTargetBlocksPerSlice(MaxBlocksPerSlice); });
+
+        if (prePopulate) PopulateTestData().Wait();
+        
         Sut = new(EventStore, cfg =>
         {
             cfg.DefineProjection<Cake>(version: version, b => b
