@@ -2,11 +2,27 @@ namespace ServcoX.EventSauce.Configurations;
 
 public sealed class ProjectionStoreConfiguration
 {
-    public TimeSpan CacheUpdateInterval { get; private set; }
+    public TimeSpan CacheUpdateInterval { get; private set; } = TimeSpan.FromMinutes(15);
 
-    public ProjectionStoreConfiguration UpdateCacheEvery(TimeSpan interval)
+    public ProjectionStoreConfiguration WriteRemoteCacheEvery(TimeSpan interval)
     {
         CacheUpdateInterval = interval;
+        return this;
+    }
+    
+    public TimeSpan? SyncInterval { get; private set; }
+
+    public ProjectionStoreConfiguration SyncEvery(TimeSpan interval)
+    {
+        SyncInterval = interval;
+        return this;
+    }
+
+    public Boolean SyncBeforeReadEnabled { get; private set; } = true;
+
+    public ProjectionStoreConfiguration DoNotSyncBeforeReads()
+    {
+        SyncBeforeReadEnabled = false;
         return this;
     }
 
