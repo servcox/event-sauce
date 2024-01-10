@@ -21,7 +21,7 @@ public sealed class EventWrapper : IDisposable
         Container.CreateIfNotExists();
 
         _aggregateName = Guid.NewGuid().ToString("N").ToUpperInvariant();
-        Sut = new(_aggregateName, Container, cfg =>
+        Sut = new(Container, _aggregateName, cfg =>
         {
             cfg.UseTargetBlocksPerSlice(MaxBlocksPerSlice);
             builder?.Invoke(cfg);

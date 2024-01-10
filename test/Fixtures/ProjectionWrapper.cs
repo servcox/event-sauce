@@ -32,7 +32,7 @@ public sealed class ProjectionWrapper : IDisposable
         const Int64 version = 1;
         _projectionId = ProjectionId.Compute(typeof(Cake), version);
         _aggregateName = Guid.NewGuid().ToString("N").ToUpperInvariant();
-        EventStore = new(_aggregateName, Container, cfg =>
+        EventStore = new(Container, _aggregateName, cfg =>
         {
             cfg.UseTargetBlocksPerSlice(MaxBlocksPerSlice);
             storeBuilder?.Invoke(cfg);

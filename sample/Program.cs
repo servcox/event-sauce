@@ -8,7 +8,7 @@ const String aggregateName = "CAKE";
 
 var container = new BlobContainerClient(connectionString, containerName);
 await container.CreateIfNotExistsAsync();
-var store = new EventStore(aggregateName, container);
+var store = new EventStore(container, aggregateName);
 
 var aggregateId = Guid.NewGuid().ToString("N");
 await store.WriteEvent(aggregateId, new CakeBaked());

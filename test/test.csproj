@@ -35,9 +35,6 @@
 
     <ItemGroup>
       <None Remove="TestData\ServcoX.EventSauce.Tests.TestData.Cake@1.brlJHUCgB1E.json.br" />
-      <Content Include="TestData\ServcoX.EventSauce.Tests.TestData.Cake@1.brlJHUCgB1E.json.br">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </Content>
     </ItemGroup>
 
 </Project>

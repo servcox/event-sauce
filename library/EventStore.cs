@@ -44,7 +44,12 @@ public class EventStore : IDisposable
     private Int64 _currentSliceId;
     private Boolean _isDisposed;
 
-    public EventStore(String aggregateName, BlobContainerClient client, Action<EventStoreConfiguration>? builder = null)
+    public EventStore(String connectionString, String containerName, String aggregateName, Action<EventStoreConfiguration>? builder = null) : this(new(connectionString, containerName), aggregateName,
+        builder)
+    {
+    }
+
+    public EventStore(BlobContainerClient client, String aggregateName, Action<EventStoreConfiguration>? builder = null)
     {
         if (aggregateName is null || !AggregateNamePattern.IsMatch(aggregateName)) throw new ArgumentException($"Must not be null and match pattern {AggregateNamePattern}", nameof(aggregateName));
         _sliceBlobPathPrefix = $"{aggregateName}/event/{aggregateName}.";
@@ -112,27 +117,28 @@ public class EventStore : IDisposable
     {
         var type = typeof(TProjection);
         if (_projections.ContainsKey(type)) throw new InvalidOperationException($"Projection of type {typeof(TProjection).FullName} already exists");
-        
+
         if (builder is null) throw new ArgumentNullException(nameof(builder));
         var configuration = new ProjectionConfiguration<TProjection>();
         builder(configuration);
-        var projection = new Projection<TProjection>(version, this,configuration);
-        
-         _syncLock.Wait();
+        var projection = new Projection<TProjection>(version, this, configuration);
+
+        _syncLock.Wait();
         try
         {
             foreach (var (sliceId, remoteEnd) in _localEnds)
             {
-                var events =  ReadEvents(sliceId, 0, remoteEnd).Result; // TODO: Only read events once for all projections. Cache?
+                var events = ReadEvents(sliceId, 0, remoteEnd).Result; // TODO: Only read events once for all projections. Cache?
                 projection.ApplyEvents(events);
             }
-            
+
             _projections[type] = projection;
         }
         finally
         {
             _syncLock.Release();
         }
+
         return projection;
     }
 
@@ -154,8 +160,6 @@ public class EventStore : IDisposable
 
                 var events = await ReadEvents(sliceId, localEnd, remoteEnd, cancellationToken).ConfigureAwait(false);
                 foreach (var (_, projection) in _projections) projection.ApplyEvents(events);
-
-                
             }
         }
         finally
