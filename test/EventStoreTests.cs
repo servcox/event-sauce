@@ -134,7 +134,7 @@ public class EventStoreTests
         slices = await wrapper.Sut.ListSlices();
         slices.Count.Should().Be(1);
         slices[0].Id.Should().Be(0);
-        slices[0].End.Should().Be(10);
+        slices[0].End.Should().Be(9);
 
         wrapper.AppendLine(0, TestEvents.AEncoded);
         wrapper.AppendLine(1, TestEvents.BEncoded);
@@ -143,9 +143,9 @@ public class EventStoreTests
         slices = await wrapper.Sut.ListSlices();
         slices.Count.Should().Be(2);
         slices[0].Id.Should().Be(0);
-        slices[0].End.Should().Be(118);
+        slices[0].End.Should().Be(117);
         slices[1].Id.Should().Be(1);
-        slices[1].End.Should().Be(238);
+        slices[1].End.Should().Be(237);
     }
 
     private static void AssertEvent(TextReader reader, String aggregateId, Object payload, Dictionary<String, String> metadata)
@@ -155,8 +155,8 @@ public class EventStoreTests
 
         var tokens = line.Split("\t");
         tokens[0].Should().Be(aggregateId);
-        tokens[1].Should().Be(payload.GetType().FullName!.ToUpperInvariant());
-        DateTime.ParseExact(tokens[2], @"yyyyMMdd\THHmmss\Z", CultureInfo.InvariantCulture).Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+        DateTime.ParseExact(tokens[1], @"yyyyMMdd\THHmmss\Z", CultureInfo.InvariantCulture).Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+        tokens[2].Should().Be(payload.GetType().FullName!.ToUpperInvariant());
         tokens[3].Should().BeEquivalentTo(JsonSerializer.Serialize(payload));
         tokens[4].Should().BeEquivalentTo(JsonSerializer.Serialize(metadata));
     }

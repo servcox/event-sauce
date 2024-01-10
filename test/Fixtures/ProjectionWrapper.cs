@@ -1,6 +1,9 @@
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using FluentAssertions;
 using ServcoX.EventSauce.Configurations;
+using ServcoX.EventSauce.Extensions;
+
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace ServcoX.EventSauce.Tests.Fixtures;
@@ -82,9 +85,13 @@ public sealed class ProjectionWrapper : IDisposable
     public BlobClient GetBlobClient() =>
         Container.GetBlobClient($"{_aggregateName}/projection/{_projectionId}.bois.lz4");
 
+    public AppendBlobClient GetSliceClient(Int64 sliceId) =>
+        Container.GetAppendBlobClient($"{_aggregateName}/event/{_aggregateName}.{sliceId.ToPaddedString()}.tsv");
+    
     public void Dispose()
     {
         GetBlobClient().DeleteIfExists();
+        GetSliceClient(0).DeleteIfExists();
     }
     
     private static String NewId() => Guid.NewGuid().ToString("N");

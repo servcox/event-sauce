@@ -83,7 +83,7 @@ public class EventStore
         {
             var idRaw = sliceBlob.Name.Substring(_sliceBlobPathPrefix.Length, sliceBlob.Name.Length - _sliceBlobPathPrefix.Length - _sliceBlobPathPostfix.Length);
             var id = Int64.Parse(idRaw, CultureInfo.InvariantCulture);
-            var end = sliceBlob.Properties.ContentLength.HasValue ? sliceBlob.Properties.ContentLength.Value + 1 : 0;
+            var end = sliceBlob.Properties.ContentLength ?? 0;
             var createdAt = sliceBlob.Properties.CreatedOn ?? new DateTimeOffset();
 
             output.Add(new()
@@ -133,11 +133,11 @@ public class EventStore
             stream.WriteAsUtf8(evt.AggregateId);
             stream.Write(FieldSeparatorBytes);
 
-            var typeName = _eventTypeResolver.Encode(evt.Payload.GetType());
-            stream.WriteAsUtf8(typeName);
+            stream.WriteAsUtf8(at);
             stream.Write(FieldSeparatorBytes);
 
-            stream.WriteAsUtf8(at);
+            var typeName = _eventTypeResolver.Encode(evt.Payload.GetType());
+            stream.WriteAsUtf8(typeName);
             stream.Write(FieldSeparatorBytes);
 
             if (evt.Payload is null) throw new BadEventException("One or more provided payloads are null");
@@ -164,9 +164,9 @@ public class EventStore
             if (line.Length == 0) continue; // Skip blank lines - used in testing
             var tokens = line.Split(FieldSeparator);
             var aggregateId = tokens[0];
-            var typeName = tokens[1];
+            var at = DateTime.ParseExact(tokens[1], DateFormatString, CultureInfo.InvariantCulture);
+            var typeName = tokens[2];
             var type = _eventTypeResolver.TryDecode(typeName) ?? typeof(Object);
-            var at = DateTime.ParseExact(tokens[2], DateFormatString, CultureInfo.InvariantCulture);
             var payload = JsonSerializer.Deserialize(tokens[3], type, SerializationOptions) ?? throw new NeverException();
             var metadata = JsonSerializer.Deserialize<Dictionary<String, String>>(tokens[4], SerializationOptions) ?? new Dictionary<String, String>();
 
