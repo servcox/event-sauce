@@ -1,6 +1,7 @@
 ﻿using Azure.Storage.Blobs;
 using ServcoX.EventSauce;
 
+// An Aggregate has its internal state, which is a projection of a single fine-grained event stream
 const String connectionString = "UseDevelopmentStorage=true;";
 const String containerName = "test";
 const String aggregateName = "CAKE";

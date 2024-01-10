@@ -1,4 +1,5 @@
 using FluentAssertions;
+using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.Tests.Fixtures;
 
 namespace ServcoX.EventSauce.Tests;
@@ -107,18 +108,16 @@ public class ProjectionStoreTests
     [Fact]
     public async Task CanElectNotToSync()
     {
-        using var wrapper = new ProjectionWrapper(cfg => cfg.DoNotSyncBeforeReads(), prePopulateData: true);
-        await wrapper.EventStore.WriteEvent(wrapper.AggregateId1, new CakeIced { Color = "BLACK" });
-        var projection = await wrapper.Sut.Read(wrapper.AggregateId1);
-        projection.Color.Should().Be("BLUE");
+        using var wrapper = new ProjectionWrapper(projectionBuilder: cfg => cfg.DoNotSyncBeforeReads(), prePopulateData: true);
+        await Assert.ThrowsAsync<NotFoundException>(() => wrapper.Sut.Read(wrapper.AggregateId1));
     }
 
     [Fact]
     public async Task CanManualSync()
     {
-        using var wrapper = new ProjectionWrapper(cfg => cfg.DoNotSyncBeforeReads(), prePopulateData: true);
+        using var wrapper = new ProjectionWrapper(projectionBuilder: cfg => cfg.DoNotSyncBeforeReads(), prePopulateData: true);
         await wrapper.EventStore.WriteEvent(wrapper.AggregateId1, new CakeIced { Color = "BLACK" });
-        await wrapper.Sut.Sync();
+        await wrapper.EventStore.Sync();
         var projection = await wrapper.Sut.Read(wrapper.AggregateId1);
         projection.Color.Should().Be("BLACK");
     }
@@ -126,7 +125,7 @@ public class ProjectionStoreTests
     [Fact]
     public async Task CanLoadRemoteCache()
     {
-        using var wrapper = new ProjectionWrapper(cfg => cfg.DoNotSyncBeforeReads(), prePopulateCache: true);
+        using var wrapper = new ProjectionWrapper(projectionBuilder: cfg => cfg.DoNotSyncBeforeReads(), prePopulateCache: true);
         var projection = await wrapper.Sut.Read("7ebc5d0faedb416abe895b43c3ccd2eb");
         projection.Id.Should().Be("7ebc5d0faedb416abe895b43c3ccd2eb");
     }
@@ -134,18 +133,16 @@ public class ProjectionStoreTests
     [Fact]
     public async Task CanWriteRemoteCache()
     {
-        using var wrapper = new ProjectionWrapper(cfg => cfg.WriteRemoteCacheEvery(TimeSpan.FromSeconds(1)), prePopulateData: true);
+        using var wrapper = new ProjectionWrapper(projectionBuilder: cfg => cfg.WriteRemoteCacheEvery(TimeSpan.FromSeconds(1)), prePopulateData: true);
         await Task.Delay(2000);
         var exists = await wrapper.GetBlobClient().ExistsAsync();
         exists.Value.Should().BeTrue();
     }
 
     [Fact]
-    public void CanNotUseInvalidIndexName() => Assert.Throws<InvalidIndexNameException>(() =>
+    public void CanNotUseInvalidIndexName()
     {
-        new ProjectionStore(null!, cfg => cfg
-            .DefineProjection(1, builder => builder
-                .IndexField("bad")
-            ));
-    });
+        var cfg = new ProjectionConfiguration<Cake>();
+        Assert.Throws<InvalidIndexNameException>(() => cfg.IndexField("bad"));
+    }
 }
