@@ -83,13 +83,13 @@ public class EventStore
         {
             var idRaw = sliceBlob.Name.Substring(_sliceBlobPathPrefix.Length, sliceBlob.Name.Length - _sliceBlobPathPrefix.Length - _sliceBlobPathPostfix.Length);
             var id = Int64.Parse(idRaw, CultureInfo.InvariantCulture);
-            var nextOffset = sliceBlob.Properties.ContentLength.HasValue ? sliceBlob.Properties.ContentLength.Value + 1 : 0;
+            var end = sliceBlob.Properties.ContentLength.HasValue ? sliceBlob.Properties.ContentLength.Value + 1 : 0;
             var createdAt = sliceBlob.Properties.CreatedOn ?? new DateTimeOffset();
 
             output.Add(new()
             {
                 Id = id,
-                NextOffset = nextOffset,
+                End = end,
                 CreatedAt = createdAt.UtcDateTime
             });
         }
@@ -99,12 +99,11 @@ public class EventStore
             .ToList();
     }
 
-    public async Task<List<IEgressEvent>> ReadEvents(Int64 sliceId, Int64 offset = 0, CancellationToken cancellationToken = default)
+    public async Task<List<IEgressEvent>> ReadEvents(Int64 sliceId, Int64 start = 0, Int64 end = Int64.MaxValue, CancellationToken cancellationToken = default)
     {
         var sliceBlob = GetSliceBlob(sliceId);
-        using var stream = await sliceBlob.OpenReadAsync(offset, cancellationToken: cancellationToken).ConfigureAwait(false);
-
-        return DecodeEventsFromStream(stream, sliceId, offset);
+        using var stream = await sliceBlob.OpenReadAsync(start, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return DecodeEventsFromStream(stream, end);
     }
 
     private AppendBlobClient GetSliceBlob(Int64 slice) => _client.GetAppendBlobClient($"{_sliceBlobPathPrefix}{slice.ToPaddedString()}{_sliceBlobPathPostfix}");
@@ -155,18 +154,13 @@ public class EventStore
         return stream;
     }
 
-    private List<IEgressEvent> DecodeEventsFromStream(Stream stream, Int64 sliceId, Int64 baseOffset)
+    private List<IEgressEvent> DecodeEventsFromStream(Stream stream, Int64 end)
     {
         var reader = new StreamLineReader(stream);
         var output = new List<IEgressEvent>();
 
-        Int64 lastPosition = 0;
-        while (reader.TryReadLine() is { } line)
+        while (reader.Position < end && reader.TryReadLine() is { } line)
         {
-            var offset = lastPosition + baseOffset;
-            lastPosition = reader.Position;
-            var nextOffset = lastPosition + baseOffset;
-
             if (line.Length == 0) continue; // Skip blank lines - used in testing
             var tokens = line.Split(FieldSeparator);
             var aggregateId = tokens[0];
@@ -183,9 +177,6 @@ public class EventStore
                 Payload = payload,
                 Metadata = metadata,
                 At = at,
-                SliceId = sliceId,
-                Offset = offset,
-                NextOffset = nextOffset,
             });
         }
 

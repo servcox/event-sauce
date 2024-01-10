@@ -12,9 +12,6 @@ public static class TestEvents
         Payload = TestPayloads.A,
         Metadata = TestMetadata.A,
         At = new(2000, 1, 1, 1, 1, 1),
-        SliceId = 0,
-        Offset = 0,
-        NextOffset = 0,
     };
 
     public static EgressEvent B => new()
@@ -24,9 +21,6 @@ public static class TestEvents
         Payload = TestPayloads.B,
         Metadata = TestMetadata.B,
         At = new(2000, 1, 1, 1, 1, 1),
-        SliceId = 0,
-        Offset = 0,
-        NextOffset = 0,
     };
 
     public static EgressEvent C => new()
@@ -36,9 +30,6 @@ public static class TestEvents
         Payload = TestPayloads.C,
         Metadata = TestMetadata.C,
         At = new(2000, 1, 1, 1, 1, 1),
-        SliceId = 0,
-        Offset = 0,
-        NextOffset = 0,
     };
 
     public static String AEncoded => "1\t" + typeof(CakeBaked).FullName!.ToUpperInvariant() + "\t20000101T010101Z\t{}\t{\"A1-KEY\":\"A1-VALUE\",\"A2-KEY\":\"A2-VALUE\"}";

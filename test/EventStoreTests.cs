@@ -70,7 +70,7 @@ public class EventStoreTests
 
         var events = await wrapper.Sut.ReadEvents(0);
         events.Count.Should().Be(1);
-        AssertEvent(events[0], TestEvents.A, 0, 0, 108);
+        AssertEvent(events[0], TestEvents.A);
     }
 
     [Fact]
@@ -83,9 +83,9 @@ public class EventStoreTests
 
         var events = await wrapper.Sut.ReadEvents(0);
         events.Count.Should().Be(3);
-        AssertEvent(events[0], TestEvents.A, 0, 0, 108);
-        AssertEvent(events[1], TestEvents.B, 0, 108, 229);
-        AssertEvent(events[2], TestEvents.C, 0, 229, 345);
+        AssertEvent(events[0], TestEvents.A);
+        AssertEvent(events[1], TestEvents.B);
+        AssertEvent(events[2], TestEvents.C);
     }
 
     [Fact]
@@ -98,8 +98,8 @@ public class EventStoreTests
 
         var events = await wrapper.Sut.ReadEvents(0, 108);
         events.Count.Should().Be(2);
-        AssertEvent(events[0], TestEvents.B, 0, 108, 229);
-        AssertEvent(events[1], TestEvents.C, 0, 229, 345);
+        AssertEvent(events[0], TestEvents.B);
+        AssertEvent(events[1], TestEvents.C);
     }
 
     [Fact]
@@ -114,31 +114,41 @@ public class EventStoreTests
 
         var events = await wrapper.Sut.ReadEvents(0);
         events.Count.Should().Be(1);
-        AssertEvent(events[0], TestEvents.A, 0, EventWrapper.MaxBlocksPerSlice - 1, EventWrapper.MaxBlocksPerSlice + 107);
-        
+        AssertEvent(events[0], TestEvents.A);
+
         events = await wrapper.Sut.ReadEvents(1);
         events.Count.Should().Be(2);
-        AssertEvent(events[0], TestEvents.B, 1, 0, 121);
-        AssertEvent(events[1], TestEvents.C, 1, 121, 237);
+        AssertEvent(events[0], TestEvents.B);
+        AssertEvent(events[1], TestEvents.C);
     }
-    
+
     [Fact]
-    public async Task CanListSLices()
+    public async Task CanListSlices()
     {
         using var wrapper = new EventWrapper();
+        var slices = await wrapper.Sut.ListSlices();
+        slices.Count.Should().Be(0);
+        
         wrapper.PrepareForOverlappingWrite();
+        
+        slices = await wrapper.Sut.ListSlices();
+        slices.Count.Should().Be(1);
+        slices[0].Id.Should().Be(0);
+        slices[0].End.Should().Be(10);
 
         wrapper.AppendLine(0, TestEvents.AEncoded);
         wrapper.AppendLine(1, TestEvents.BEncoded);
         wrapper.AppendLine(1, TestEvents.CEncoded);
 
-        var slices = await wrapper.Sut.ListSlices();
+        slices = await wrapper.Sut.ListSlices();
         slices.Count.Should().Be(2);
         slices[0].Id.Should().Be(0);
+        slices[0].End.Should().Be(118);
         slices[1].Id.Should().Be(1);
+        slices[1].End.Should().Be(238);
     }
 
-    private static void AssertEvent(StreamReader reader, String aggregateId, Object payload, Dictionary<String, String> metadata)
+    private static void AssertEvent(TextReader reader, String aggregateId, Object payload, Dictionary<String, String> metadata)
     {
         var line = reader.ReadLine()!;
         line.Should().NotBeNull();
@@ -151,16 +161,13 @@ public class EventStoreTests
         tokens[4].Should().BeEquivalentTo(JsonSerializer.Serialize(metadata));
     }
 
-    private static void AssertEvent(IEgressEvent actual, IEgressEvent expected, Int64 sliceId, Int64 offset, Int64 nextOffset)
+    private static void AssertEvent(IEgressEvent actual, IEgressEvent expected)
     {
         actual.AggregateId.Should().Be(expected.AggregateId);
         actual.Type.Should().BeEquivalentTo(expected.Type);
         actual.Payload.Should().Be(expected.Payload);
         actual.Metadata.Should().BeEquivalentTo(expected.Metadata);
         actual.At.Should().Be(expected.At);
-        actual.SliceId.Should().Be(sliceId);
-        actual.Offset.Should().Be(offset);
-        actual.NextOffset.Should().Be(nextOffset);
     }
 
     private static String NewId() => Guid.NewGuid().ToString("N");

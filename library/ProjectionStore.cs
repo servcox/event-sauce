@@ -127,7 +127,7 @@ public class ProjectionStore : IDisposable
         }
     }
 
-    private readonly ConcurrentDictionary<Int64, Int64> _localNextOffsets = new(); // Slice => Offset;
+    private readonly ConcurrentDictionary<Int64, Int64> _localEnds = new(); // SliceId => End;
 
     private readonly SemaphoreSlim _loadLock = new (1);
     private async Task LoadAnyNewEvents(CancellationToken cancellationToken)
@@ -137,12 +137,12 @@ public class ProjectionStore : IDisposable
         {
             // TODO: Lock
             var slices = await _store.ListSlices().ConfigureAwait(false);
-            foreach (var (sliceId, remoteNextOffset, _) in slices)
+            foreach (var (sliceId, remoteEnd, _) in slices)
             {
-                _localNextOffsets.TryGetValue(sliceId, out var localNextOffset);
-                if (localNextOffset >= remoteNextOffset) continue;
+                _localEnds.TryGetValue(sliceId, out var localEnd);
+                if (localEnd >= remoteEnd) continue;
 
-                var events = await _store.ReadEvents(sliceId, localNextOffset, remoteNextOffset, cancellationToken).ConfigureAwait(false);
+                var events = await _store.ReadEvents(sliceId, localEnd, remoteEnd, cancellationToken).ConfigureAwait(false);
                 foreach (var (type, instance) in _instances)
                 {
                     var builder = _configuration.Projections[type];
@@ -217,7 +217,7 @@ public class ProjectionStore : IDisposable
                     instance.Indexes = indexes;
                 }
 
-                _localNextOffsets[sliceId] = remoteNextOffset;
+                _localEnds[sliceId] = remoteEnd;
                 if (events.Count > 0) _remoteCacheDirty = true;
             }
         }
@@ -246,6 +246,7 @@ public class ProjectionStore : IDisposable
         if (disposing)
         {
             _cacheWriteTimer.Dispose();
+            _loadLock.Dispose();
         }
 
         _isDisposed = true;
