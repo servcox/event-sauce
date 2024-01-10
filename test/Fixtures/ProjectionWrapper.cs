@@ -13,7 +13,7 @@ public sealed class ProjectionWrapper : IDisposable
     private const String ConnectionString = "UseDevelopmentStorage=true;";
     public BlobContainerClient Container { get; }
     public EventStore EventStore { get; }
-    public ProjectionStore Sut { get; }
+    public Projection<Cake> Sut { get; }
     private readonly String _aggregateName;
 
     public const Int32 MaxBlocksPerSlice = 10;
@@ -22,38 +22,37 @@ public sealed class ProjectionWrapper : IDisposable
     public readonly String AggregateId2 = NewId();
     private readonly String _projectionId;
 
-    public ProjectionWrapper(Action<ProjectionStoreConfiguration>? builder = null, Boolean prePopulateData = false, Boolean prePopulateCache = false)
+    public ProjectionWrapper(Action<EventStoreConfiguration>? builder = null, Boolean prePopulateData = false, Boolean prePopulateCache = false)
     {
-        var containerName = "unit-tests";
+        const String containerName = "unit-tests";
         Container = new(ConnectionString, containerName);
         Container.CreateIfNotExists();
 
-        Int64 version = 1;
+        const Int64 version = 1;
         _projectionId = ProjectionId.Compute(typeof(Cake), version);
         _aggregateName = Guid.NewGuid().ToString("N").ToUpperInvariant();
-        EventStore = new(_aggregateName, Container, cfg => { cfg.UseTargetBlocksPerSlice(MaxBlocksPerSlice); });
+        EventStore = new(_aggregateName, Container, cfg => { 
+            cfg.UseTargetBlocksPerSlice(MaxBlocksPerSlice);
+            builder?.Invoke(cfg);
+        });
 
         if (prePopulateData) PopulateTestData().Wait();
         if (prePopulateCache) PopulateCache().Wait();
 
-        Sut = new(EventStore, cfg =>
-        {
-            cfg.DefineProjection<Cake>(version: version, b => b
-                .OnCreation((projection, id) => projection.Id = id)
-                .OnEvent<CakeBaked>((projection, body, _) => { })
-                .OnEvent<CakeIced>((projection, body, _) => projection.Color = body.Color)
-                .OnEvent<CakeCut>((projection, body, _) => projection.Slices += body.Slices)
-                .OnUnexpectedEvent((projection, _) => projection.UnexpectedEvents++)
-                .OnAnyEvent((projection, evt) =>
-                {
-                    projection.AnyEvents++;
-                    projection.LastUpdatedAt = evt.At;
-                })
-                .IndexField(nameof(Cake.Color))
-                .IndexField(nameof(Cake.Slices))
-            );
-            builder?.Invoke(cfg);
-        });
+        Sut = EventStore.Project<Cake>(version: version, b => b
+            .OnCreation((projection, id) => projection.Id = id)
+            .OnEvent<CakeBaked>((projection, body, _) => { })
+            .OnEvent<CakeIced>((projection, body, _) => projection.Color = body.Color)
+            .OnEvent<CakeCut>((projection, body, _) => projection.Slices += body.Slices)
+            .OnUnexpectedEvent((projection, _) => projection.UnexpectedEvents++)
+            .OnAnyEvent((projection, evt) =>
+            {
+                projection.AnyEvents++;
+                projection.LastUpdatedAt = evt.At;
+            })
+            .IndexField(nameof(Cake.Color))
+            .IndexField(nameof(Cake.Slices))
+        );
     }
 
     public async Task PopulateTestData()

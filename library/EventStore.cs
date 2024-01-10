@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -13,7 +14,7 @@ using Stream = System.IO.Stream;
 
 namespace ServcoX.EventSauce;
 
-public class EventStore
+public class EventStore : IDisposable
 {
     private const String DateFormatString = @"yyyyMMdd\THHmmss\Z";
 
@@ -38,15 +39,16 @@ public class EventStore
     private readonly EventStoreConfiguration _configuration = new();
     private readonly String _sliceBlobPathPrefix;
     private readonly String _sliceBlobPathPostfix = ".tsv";
-    public String AggregateName { get; }
     private readonly BlobContainerClient _client;
-    public BlobContainerClient UnderlyingContainerClient => _client;
+    private readonly String _aggregateName;
+
     private Int64 _currentSliceId;
+    private Boolean _isDisposed;
 
     public EventStore(String aggregateName, BlobContainerClient client, Action<EventStoreConfiguration>? builder = null)
     {
         if (aggregateName is null || !AggregateNamePattern.IsMatch(aggregateName)) throw new ArgumentException($"Must not be null and match pattern {AggregateNamePattern}", nameof(aggregateName));
-        AggregateName = aggregateName;
+        _aggregateName = aggregateName;
         _sliceBlobPathPrefix = $"{aggregateName}/event/{aggregateName}.";
         _client = client;
         builder?.Invoke(_configuration);
@@ -104,6 +106,48 @@ public class EventStore
         var sliceBlob = GetSliceBlob(sliceId);
         using var stream = await sliceBlob.OpenReadAsync(start, cancellationToken: cancellationToken).ConfigureAwait(false);
         return DecodeEventsFromStream(stream, end);
+    }
+
+    private readonly ConcurrentDictionary<Type, IProjection> _projections = new();
+
+    public Projection<TProjection> Project<TProjection>(Int64 version, Action<ProjectionConfiguration<TProjection>> builder) where TProjection : new()
+    {
+        var type = typeof(TProjection);
+        if (_projections.ContainsKey(type)) throw new InvalidOperationException($"Projection of type {typeof(TProjection).FullName} already exists");
+        
+        if (builder is null) throw new ArgumentNullException(nameof(builder));
+        var configuration = new ProjectionConfiguration<TProjection>();
+        builder(configuration);
+        var projection = new Projection<TProjection>(version, this, _client, _aggregateName, configuration);
+        _projections[type] = projection;
+        return projection;
+    }
+
+    private readonly ConcurrentDictionary<Int64, Int64> _localEnds = new(); // SliceId => End;
+
+    private readonly SemaphoreSlim _loadLock = new(1);
+
+    public async Task Sync(CancellationToken cancellationToken = default)
+    {
+        await _loadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var slices = await ListSlices().ConfigureAwait(false);
+            foreach (var (sliceId, remoteEnd, _) in slices)
+            {
+                _localEnds.TryGetValue(sliceId, out var localEnd);
+                if (localEnd >= remoteEnd) continue;
+
+                var events = await ReadEvents(sliceId, localEnd, remoteEnd, cancellationToken).ConfigureAwait(false);
+                foreach (var (_, projection) in _projections) projection.ApplyEvents(events);
+
+                _localEnds[sliceId] = remoteEnd;
+            }
+        }
+        finally
+        {
+            _loadLock.Release();
+        }
     }
 
     private AppendBlobClient GetSliceBlob(Int64 slice) => _client.GetAppendBlobClient($"{_sliceBlobPathPrefix}{slice.ToPaddedString()}{_sliceBlobPathPostfix}");
@@ -181,5 +225,22 @@ public class EventStore
         }
 
         return output;
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(Boolean disposing)
+    {
+        if (_isDisposed) return;
+        if (disposing)
+        {
+            _loadLock.Dispose();
+        }
+
+        _isDisposed = true;
     }
 }

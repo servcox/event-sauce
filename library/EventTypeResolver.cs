@@ -7,6 +7,7 @@ namespace ServcoX.EventSauce;
 
 public sealed class EventTypeResolver
 {
+    public static readonly EventTypeResolver Shared = new();
     private readonly ConcurrentDictionary<String, Type> _knownEventBodies = new();
 
     public String Encode(Type type)

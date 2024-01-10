@@ -7,34 +7,34 @@ const String aggregateName = "CAKE";
 
 var container = new BlobContainerClient(connectionString, containerName);
 await container.CreateIfNotExistsAsync();
-var eventStore = new EventStore(aggregateName, container);
+var store = new EventStore(aggregateName, container);
 
 var aggregateId = Guid.NewGuid().ToString("N");
-await eventStore.WriteEvent(aggregateId, new CakeBaked());
-await eventStore.WriteEvent(aggregateId, new CakeIced("BLUE"));
-await eventStore.WriteEvent(aggregateId, new CakeCut(3));
+await store.WriteEvent(aggregateId, new CakeBaked());
+await store.WriteEvent(aggregateId, new CakeIced("BLUE"));
+await store.WriteEvent(aggregateId, new CakeCut(3));
 
-foreach (var slice in await eventStore.ListSlices())
+foreach (var slice in await store.ListSlices())
 {
-    foreach (var evt in await eventStore.ReadEvents(slice.Id))
+    foreach (var evt in await store.ReadEvents(slice.Id))
     {
         Console.WriteLine($"{evt.Type}: {evt.Payload}");
     }
 }
 
-var projectionStore = new ProjectionStore(eventStore, cfg => cfg
-    .DefineProjection<Cake>(version: 1, builder => builder
-        .OnCreation((projection, id) => projection.Id = id)
-        .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
-        .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
-        .OnUnexpectedEvent((projection, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered")) // Called for any event that doesn't have a specific handler
-        .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.At) // Called for all events - expected and unexpected
-        .IndexField(nameof(Cake.Color))
-    ));
+var cakeProjection = store.Project<Cake>(version: 1, builder => builder
+    .OnCreation((projection, id) => projection.Id = id)
+    .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
+    .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
+    .OnUnexpectedEvent((projection, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered")) // Called for any event that doesn't have a specific handler
+    .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.At) // Called for all events - expected and unexpected
+    .IndexField(nameof(Cake.Color))
+);
 
-var projection = await projectionStore.Read<Cake>(aggregateId);
+var aggregate = await cakeProjection.Read(aggregateId);
 
-var projections = projectionStore.Query<Cake>(nameof(Cake.Color), "BLUE");
+var aggregates = cakeProjection.Query(nameof(Cake.Color), "BLUE");
+
 
 
 public record Cake
