@@ -20,6 +20,7 @@ var container = new BlobContainerClient(connectionString, containerName);
 await container.CreateIfNotExistsAsync();
 var v3Store = new EventStore(container, aggregateName);
 var v3Projection = v3Store.Project<Cake>(version: 1, builder => builder
+    .DoNotSyncBeforeReads()
     .OnCreation((projection, id) => projection.Id = id)
     .OnEvent<CakeBaked>((projection, body, _) => { })
     .OnEvent<CakeIced>((projection, body, _) => projection.Color = body.Color)
@@ -86,6 +87,7 @@ Console.WriteLine("V2 writes/sec: " + (Single)v2Writes / allowedTime.TotalSecond
 await v3Store.WriteEvent(readAggregateId, new CakeBaked(), new Dictionary<String, String> { ["By"] = createdBy });
 await v3Store.WriteEvent(readAggregateId, new CakeIced("BLUE"), new Dictionary<String, String> { ["By"] = createdBy });
 await v3Store.WriteEvent(readAggregateId, new CakeCut(3), new Dictionary<String, String> { ["By"] = createdBy });
+await v3Store.Sync();
 var v3Reads = 0;
 var v3ReadStopwatch = Stopwatch.StartNew();
 do
@@ -109,6 +111,8 @@ do
     v2Reads++;
 } while (v2ReadStopwatch.Elapsed < allowedTime);
 
+Console.WriteLine("V2 reads/sec: " + (Single)v2Reads / allowedTime.TotalSeconds);
+
 // V3 Write+Reads
 var v3WriteReads = 0;
 var v3WriteReadStopwatch = Stopwatch.StartNew();
@@ -118,6 +122,7 @@ do
     await v3Store.WriteEvent(aggregateId, new CakeBaked(), new Dictionary<String, String> { ["By"] = createdBy });
     await v3Store.WriteEvent(aggregateId, new CakeIced("BLUE"), new Dictionary<String, String> { ["By"] = createdBy });
     await v3Store.WriteEvent(aggregateId, new CakeCut(3), new Dictionary<String, String> { ["By"] = createdBy });
+    await v3Store.Sync();
     await v3Projection.Read(aggregateId);
     v3WriteReads++;
 } while (v3WriteReadStopwatch.Elapsed < allowedTime);
