@@ -51,6 +51,13 @@ public sealed class StreamTable(TableClient table)
     public Task<Response> Update(StreamRecord record, CancellationToken cancellationToken = default)
     {
         if (record is null) throw new ArgumentNullException(nameof(record));
-        return table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
+        try
+        {
+            return table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
+        }
+        catch (TableTransactionFailedException ex) when (ex.ErrorCode == "UpdateConditionNotSatisfied")
+        {
+            throw new OptimisticWriteInterruptedException("Write to this stream interrupted by a preceding write. Retry the operation.");
+        }
     }
 }
