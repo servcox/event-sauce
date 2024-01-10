@@ -41,12 +41,11 @@ public class ProjectionStoreTests
     [Fact]
     public async Task CanList()
     {
-        using var wrapper = new ProjectionWrapper();
-        await wrapper.PopulateTestData();
+        using var wrapper = new ProjectionWrapper(prePopulate: true);
         var projections = await wrapper.Sut.List<Cake>();
         projections.Count.Should().Be(2);
-        wrapper.Assert1(projections[0]);
-        wrapper.Assert2(projections[1]);
+        wrapper.Assert1(projections.Single(projection => projection.Id == wrapper.AggregateId1));
+        wrapper.Assert2(projections.Single(projection => projection.Id == wrapper.AggregateId2));
     }
 
     [Fact]
@@ -57,7 +56,7 @@ public class ProjectionStoreTests
         projections.Count.Should().Be(1);
         wrapper.Assert2(projections[0]);
     }
-    
+
     [Fact]
     public async Task CanQueryByNumber()
     {
@@ -74,7 +73,7 @@ public class ProjectionStoreTests
         var projections = await wrapper.Sut.Query<Cake>(new Dictionary<String, Object>
         {
             [nameof(Cake.Color)] = "GREEN",
-            [nameof(Cake.Slices)] = 4,
+            [nameof(Cake.Slices)] = 1,
         });
         projections.Count.Should().Be(1);
         wrapper.Assert2(projections[0]);
