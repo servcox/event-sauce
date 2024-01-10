@@ -72,10 +72,10 @@ public class ProjectionStore : IDisposable
         return instance.Aggregates.Values.Cast<TProjection>().ToList();
     }
 
-    public Task<List<TProjection>> Query<TProjection>(String key, Object value, CancellationToken cancellationToken = default) =>
-        Query<TProjection>(new Dictionary<String, Object> { [key] = value }, cancellationToken);
+    public Task<List<TProjection>> Query<TProjection>(String key, String value, CancellationToken cancellationToken = default) =>
+        Query<TProjection>(new Dictionary<String, String> { [key] = value }, cancellationToken);
 
-    public async Task<List<TProjection>> Query<TProjection>(IDictionary<String, Object> query, CancellationToken cancellationToken = default)
+    public async Task<List<TProjection>> Query<TProjection>(IDictionary<String, String> query, CancellationToken cancellationToken = default)
     {
         if (query is null) throw new ArgumentNullException(nameof(query));
 
@@ -160,21 +160,22 @@ public class ProjectionStore : IDisposable
         }
     }
 
-    public static Dictionary<String, Dictionary<Object, List<String>>> GenerateIndex(ConcurrentDictionary<String, Object> aggregates, IProjectionConfiguration configuration)
+    public static Dictionary<String, Dictionary<String, List<String>>> GenerateIndex(ConcurrentDictionary<String, Object> aggregates, IProjectionConfiguration configuration)
     {
         if (aggregates is null) throw new ArgumentNullException(nameof(aggregates));
         if (configuration is null) throw new ArgumentNullException(nameof(configuration));
 
-        var indexes = new Dictionary<String, Dictionary<Object, List<String>>>(); // Field => Value => Id
+        var indexes = new Dictionary<String, Dictionary<String, List<String>>>(); // Field => Value => Id
         foreach (var (fieldName, method) in configuration.Indexes)
         {
             var index = indexes[fieldName] = new(); // Value => Id
 
             foreach (var (id, aggregate) in aggregates)
             {
-                var fieldValue = method.Invoke(aggregate, null);
-                if (fieldValue is null) continue; // Index does not currently support NULLs
-                if (!index.TryGetValue(fieldValue, out var ids)) ids = index[fieldValue] = [];
+                var value = method.Invoke(aggregate, null);
+                if (value is null) continue; // Index does not currently support NULLs
+                var valueString = value.ToString()!;
+                if (!index.TryGetValue(valueString, out var ids)) ids = index[valueString] = [];
                 ids.Add(id);
             }
         }
@@ -253,7 +254,7 @@ public class ProjectionStore : IDisposable
 
     private sealed class Instance
     {
-        public Dictionary<String, Dictionary<Object, List<String>>> Indexes { get; set; } = new(); // Field => Value => Id
+        public Dictionary<String, Dictionary<String, List<String>>> Indexes { get; set; } = new(); // Field => Value => Id
         public ConcurrentDictionary<String, Object> Aggregates { get; init; } = new(); // Id => Projection
     }
 }

@@ -61,7 +61,7 @@ public class ProjectionStoreTests
     public async Task CanQueryByNumber()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
-        var projections = await wrapper.Sut.Query<Cake>(nameof(Cake.Slices), 1);
+        var projections = await wrapper.Sut.Query<Cake>(nameof(Cake.Slices), "1");
         projections.Count.Should().Be(1);
         wrapper.Assert2(projections[0]);
     }
@@ -70,10 +70,10 @@ public class ProjectionStoreTests
     public async Task CanMultiFacetQuery()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
-        var projections = await wrapper.Sut.Query<Cake>(new Dictionary<String, Object>
+        var projections = await wrapper.Sut.Query<Cake>(new Dictionary<String, String>
         {
             [nameof(Cake.Color)] = "GREEN",
-            [nameof(Cake.Slices)] = 1,
+            [nameof(Cake.Slices)] = "1",
         });
         projections.Count.Should().Be(1);
         wrapper.Assert2(projections[0]);
@@ -127,8 +127,8 @@ public class ProjectionStoreTests
     public async Task CanLoadRemoteCache()
     {
         using var wrapper = new ProjectionWrapper(cfg => cfg.DoNotSyncBeforeReads(), prePopulateCache: true);
-        var projection = await wrapper.Sut.Read<Cake>("aefdac17ae59465d8aa3084590dda6f0");
-        projection.Id.Should().Be("aefdac17ae59465d8aa3084590dda6f0");
+        var projection = await wrapper.Sut.Read<Cake>("7ebc5d0faedb416abe895b43c3ccd2eb");
+        projection.Id.Should().Be("7ebc5d0faedb416abe895b43c3ccd2eb");
     }
 
     [Fact]
