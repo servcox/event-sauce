@@ -55,7 +55,7 @@ public sealed class StreamTable(TableClient table)
         {
             return table.UpdateEntityAsync(record, record.ETag, TableUpdateMode.Replace, cancellationToken);
         }
-        catch (TableTransactionFailedException ex) when (ex.ErrorCode == "UpdateConditionNotSatisfied")
+        catch (RequestFailedException ex) when (ex.ErrorCode == "UpdateConditionNotSatisfied")
         {
             throw new OptimisticWriteInterruptedException("Write to this stream interrupted by a preceding write. Retry the operation.");
         }
