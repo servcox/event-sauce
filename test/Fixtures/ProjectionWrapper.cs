@@ -49,6 +49,7 @@ public sealed class ProjectionWrapper : IDisposable
                     projection.LastUpdatedAt = evt.At;
                 })
                 .IndexField(nameof(Cake.Color))
+                .IndexField(nameof(Cake.Slices))
             );
             builder?.Invoke(cfg);
         });
