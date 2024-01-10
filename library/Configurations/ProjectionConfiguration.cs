@@ -8,33 +8,16 @@ namespace ServcoX.EventSauce.Configurations;
 
 public sealed class ProjectionConfiguration<TAggregate> where TAggregate : new()
 {
-    public Boolean SyncBeforeReadEnabled { get; private set; } = true;
-
-    public ProjectionConfiguration<TAggregate> DoNotSyncBeforeReads()
-    {
-        SyncBeforeReadEnabled = false;
-        return this;
-    }
-
-    public TimeSpan CacheUpdateInterval { get; private set; } = TimeSpan.FromMinutes(15);
-
-    public ProjectionConfiguration<TAggregate> WriteRemoteCacheEvery(TimeSpan interval)
-    {
-        CacheUpdateInterval = interval;
-        return this;
-    }
-
-    private GenericAction _creationHandler = new(new Action<TAggregate, IEgressEvent>((_, _) => { }));
-    public GenericAction CreationHandler => _creationHandler;
+    internal GenericAction CreationHandler { get; private set; } = new(new Action<TAggregate, IEgressEvent>((_, _) => { }));
 
     public ProjectionConfiguration<TAggregate> OnCreation(Action<TAggregate, String> action)
     {
-        _creationHandler = new(action);
+        CreationHandler = new(action);
         return this;
     }
 
     private readonly Dictionary<Type, GenericAction> _specificEventHandlers = [];
-    public IReadOnlyDictionary<Type, GenericAction> SpecificEventHandlers => _specificEventHandlers;
+    internal IReadOnlyDictionary<Type, GenericAction> SpecificEventHandlers => _specificEventHandlers;
 
     public ProjectionConfiguration<TAggregate> OnEvent<TEventBody>(Action<TAggregate, TEventBody, IEgressEvent> action)
     {
@@ -45,26 +28,24 @@ public sealed class ProjectionConfiguration<TAggregate> where TAggregate : new()
         return this;
     }
 
-    private GenericAction _unexpectedEventHandler = new(new Action<TAggregate, IEgressEvent>((_, _) => { }));
-    public GenericAction UnexpectedEventHandler => _unexpectedEventHandler;
+    internal GenericAction UnexpectedEventHandler { get; private set; } = new(new Action<TAggregate, IEgressEvent>((_, _) => { }));
 
     public ProjectionConfiguration<TAggregate> OnUnexpectedEvent(Action<TAggregate, IEgressEvent> action)
     {
-        _unexpectedEventHandler = new(action);
+        UnexpectedEventHandler = new(action);
         return this;
     }
 
-    private GenericAction _anyEventHandler = new(new Action<TAggregate, IEgressEvent>((_, _) => { }));
-    public GenericAction AnyEventHandler => _anyEventHandler;
+    internal GenericAction AnyEventHandler { get; private set; } = new(new Action<TAggregate, IEgressEvent>((_, _) => { }));
 
     public ProjectionConfiguration<TAggregate> OnAnyEvent(Action<TAggregate, IEgressEvent> action)
     {
-        _anyEventHandler = new(action);
+        AnyEventHandler = new(action);
         return this;
     }
 
     private readonly Dictionary<String, MethodInfo> _indexes = [];
-    public IReadOnlyDictionary<String, MethodInfo> Indexes => _indexes;
+    internal IReadOnlyDictionary<String, MethodInfo> Indexes => _indexes;
 
     public ProjectionConfiguration<TAggregate> IndexField(String fieldName)
     {

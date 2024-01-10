@@ -8,7 +8,9 @@ using Azure.Storage.Blobs.Specialized;
 using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.Models;
 using Stream = System.IO.Stream;
+using Timer = System.Timers.Timer;
 
+// ReSharper disable ClassWithVirtualMembersNeverInherited.Global
 // ReSharper disable UseAwaitUsing
 // ReSharper disable MemberCanBePrivate.Global
 
@@ -40,6 +42,7 @@ public class EventStore : IDisposable
     private readonly String _sliceBlobPathPrefix;
     private readonly String _sliceBlobPathPostfix = ".tsv";
     private readonly BlobContainerClient _client;
+    private readonly Timer? _syncTimer;
 
     private Int64 _currentSliceId;
     private Boolean _isDisposed;
@@ -57,6 +60,18 @@ public class EventStore : IDisposable
         builder?.Invoke(_configuration);
 
         _currentSliceId = ListSlices().Result.LastOrDefault().Id;
+        
+        if (_configuration.SyncInterval.HasValue)
+        {
+            _syncTimer = new (_configuration.SyncInterval.Value);
+            _syncTimer.Elapsed += async (_, _) =>
+            {
+                await Sync().ConfigureAwait(false);
+                _syncTimer.Start();
+            };
+            _syncTimer.AutoReset = false;
+            _syncTimer.Start();
+        }
     }
 
     public Task WriteEvent(String aggregateId, Object payload, IDictionary<String, String>? metadata = default, CancellationToken cancellationToken = default) =>
@@ -121,7 +136,7 @@ public class EventStore : IDisposable
         if (builder is null) throw new ArgumentNullException(nameof(builder));
         var configuration = new ProjectionConfiguration<TProjection>();
         builder(configuration);
-        var projection = new Projection<TProjection>(version, this, configuration);
+        var projection = new Projection<TProjection>(version, this, _configuration.SyncBeforeRead, configuration);
 
         _syncLock.Wait();
         try
@@ -257,6 +272,7 @@ public class EventStore : IDisposable
         if (disposing)
         {
             _syncLock.Dispose();
+            _syncTimer?.Dispose();
         }
 
         _isDisposed = true;

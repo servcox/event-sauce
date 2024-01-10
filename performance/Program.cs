@@ -5,9 +5,7 @@ using ServcoX.EventSauce.V2;
 using EventStore = ServcoX.EventSauce.EventStore;
 
 const String connectionString = "UseDevelopmentStorage=true;";
-
 const String aggregateName = "CAKE";
-
 
 var allowedTime = TimeSpan.FromSeconds(5);
 
@@ -18,11 +16,11 @@ var createdBy = Guid.NewGuid().ToString("N");
 var containerName = $"test{Guid.NewGuid():N}";
 var container = new BlobContainerClient(connectionString, containerName);
 await container.CreateIfNotExistsAsync();
-var v3Store = new EventStore(container, aggregateName);
-var v3Projection = v3Store.Project<Cake>(version: 1, builder => builder
-    .DoNotSyncBeforeReads()
+var v3Store = new EventStore(container, aggregateName, cfg => cfg
+    .DoNotSyncBeforeReads());
+var v3Projection = v3Store.Project<Cake>(version: 1, cfg => cfg
     .OnCreation((projection, id) => projection.Id = id)
-    .OnEvent<CakeBaked>((projection, body, _) => { })
+    .OnEvent<CakeBaked>((_, _, _) => { })
     .OnEvent<CakeIced>((projection, body, _) => projection.Color = body.Color)
     .OnEvent<CakeCut>((projection, body, _) => projection.Slices += body.Slices)
     .OnUnexpectedEvent((_, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered"))
@@ -52,7 +50,7 @@ var v2Store = new ServcoX.EventSauce.V2.EventStore(connectionString, cfg => cfg
     .RefreshProjectionsAfterWriting()
     .DefineProjection<Cake>(streamType: "CAKE", version: 1, builder => builder
         .OnCreation((projection, id) => projection.Id = id)
-        .OnEvent<CakeBaked>((projection, body, _) => { })
+        .OnEvent<CakeBaked>((_, _, _) => { })
         .OnEvent<CakeIced>((projection, body, _) => projection.Color = body.Color)
         .OnEvent<CakeCut>((projection, body, _) => projection.Slices += body.Slices)
         .OnUnexpectedEvent((_, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered"))

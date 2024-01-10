@@ -8,7 +8,9 @@ const String aggregateName = "CAKE";
 
 var container = new BlobContainerClient(connectionString, containerName);
 await container.CreateIfNotExistsAsync();
-var store = new EventStore(container, aggregateName);
+var store = new EventStore(container, aggregateName,cfg => cfg
+    .SyncEvery(TimeSpan.FromMinutes(15))
+    .DoNotSyncBeforeReads());
 
 var aggregateId = Guid.NewGuid().ToString("N");
 await store.WriteEvent(aggregateId, new CakeBaked());
@@ -32,6 +34,7 @@ var cakeProjection = store.Project<Cake>(version: 1, builder => builder
     .IndexField(nameof(Cake.Color))
 );
 
+await store.Sync();
 var aggregate = await cakeProjection.Read(aggregateId);
 
 var aggregates = cakeProjection.Query(nameof(Cake.Color), "BLUE");

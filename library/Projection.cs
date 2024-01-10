@@ -11,13 +11,15 @@ namespace ServcoX.EventSauce;
 public class Projection<TAggregate> : IProjection where TAggregate : new()
 {
     private readonly EventStore _store;
+    private readonly Boolean _syncBeforeReads;
     private readonly ProjectionConfiguration<TAggregate> _configuration;
     private Dictionary<String, Dictionary<String, List<String>>> _indexes = new(); // Field => Value => Id
     private readonly ConcurrentDictionary<String, TAggregate> _aggregates = new(); // Id => Projection
 
-    public Projection(Int64 version, EventStore store, ProjectionConfiguration<TAggregate> configuration)
+    public Projection(Int64 version, EventStore store, Boolean syncBeforeReads, ProjectionConfiguration<TAggregate> configuration)
     {
         _store = store;
+        _syncBeforeReads = syncBeforeReads;
         _configuration = configuration;
     }
 
@@ -26,13 +28,13 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
 
     public async Task<TAggregate?> TryRead(String aggregateId, CancellationToken cancellationToken = default)
     {
-        if (_configuration.SyncBeforeReadEnabled) await _store.Sync(cancellationToken).ConfigureAwait(false);
+        if (_syncBeforeReads) await _store.Sync(cancellationToken).ConfigureAwait(false);
         return _aggregates.GetValueOrDefault(aggregateId);
     }
 
     public async Task<List<TAggregate>> List(CancellationToken cancellationToken = default)
     {
-        if (_configuration.SyncBeforeReadEnabled) await _store.Sync(cancellationToken).ConfigureAwait(false);
+        if (_syncBeforeReads) await _store.Sync(cancellationToken).ConfigureAwait(false);
         return _aggregates.Values.ToList();
     }
 
@@ -43,7 +45,7 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
     {
         if (query is null) throw new ArgumentNullException(nameof(query));
 
-        if (_configuration.SyncBeforeReadEnabled) await _store.Sync(cancellationToken).ConfigureAwait(false);
+        if (_syncBeforeReads) await _store.Sync(cancellationToken).ConfigureAwait(false);
 
         List<String>? candidate = null;
         foreach (var q in query)

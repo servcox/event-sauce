@@ -108,16 +108,26 @@ public class ProjectionStoreTests
     [Fact]
     public async Task CanElectNotToSync()
     {
-        using var wrapper = new ProjectionWrapper(projectionBuilder: cfg => cfg.DoNotSyncBeforeReads(), prePopulateData: true);
+        using var wrapper = new ProjectionWrapper(storeBuilder: cfg => cfg.DoNotSyncBeforeReads(), prePopulateData: true);
         await Assert.ThrowsAsync<NotFoundException>(() => wrapper.Sut.Read(wrapper.AggregateId1));
     }
 
     [Fact]
     public async Task CanManualSync()
     {
-        using var wrapper = new ProjectionWrapper(projectionBuilder: cfg => cfg.DoNotSyncBeforeReads(), prePopulateData: true);
+        using var wrapper = new ProjectionWrapper(storeBuilder: cfg => cfg.DoNotSyncBeforeReads(), prePopulateData: true);
         await wrapper.EventStore.WriteEvent(wrapper.AggregateId1, new CakeIced { Color = "BLACK" });
         await wrapper.EventStore.Sync();
+        var projection = await wrapper.Sut.Read(wrapper.AggregateId1);
+        projection.Color.Should().Be("BLACK");
+    }
+
+    [Fact]
+    public async Task CanSyncOnTimer()
+    {
+        using var wrapper = new ProjectionWrapper(storeBuilder: cfg => cfg.DoNotSyncBeforeReads().SyncEvery(TimeSpan.FromSeconds(1)), prePopulateData: true);
+        await wrapper.EventStore.WriteEvent(wrapper.AggregateId1, new CakeIced { Color = "BLACK" });
+        await Task.Delay(1500);
         var projection = await wrapper.Sut.Read(wrapper.AggregateId1);
         projection.Color.Should().Be("BLACK");
     }
