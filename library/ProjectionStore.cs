@@ -39,7 +39,7 @@ public class ProjectionStore : IDisposable
             _cacheWriteTimer.Start();
         };
         _cacheWriteTimer.AutoReset = false;
-         _cacheWriteTimer.Start();
+        _cacheWriteTimer.Start();
 
         _syncTimer = new(_configuration.SyncInterval?.TotalMilliseconds ?? 1);
         _syncTimer.Elapsed += async (_, _) =>
@@ -190,8 +190,8 @@ public class ProjectionStore : IDisposable
 
         _isDisposed = true;
     }
-    
-     private sealed class Instance(IProjectionConfiguration configuration)
+
+    private sealed class Instance(IProjectionConfiguration configuration)
     {
         private static readonly EventTypeResolver EventTypeResolver = new();
 
@@ -205,65 +205,33 @@ public class ProjectionStore : IDisposable
                 if (!Aggregates.TryGetValue(evt.AggregateId, out var aggregate))
                 {
                     Aggregates[evt.AggregateId] = aggregate = Activator.CreateInstance(configuration.Type)!;
-                    foreach (var handler in configuration.CreationHandlers)
-                    {
-                        var method = handler
-                            .GetType()
-                            .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
-                        method.Invoke(handler, new[] { aggregate, evt.AggregateId });
-                    }
+                    configuration.CreationHandler.Invoke(aggregate, evt.AggregateId );
                 }
 
-                var specificHandlerFound = false;
                 var eventType = EventTypeResolver.TryDecode(evt.Type);
-                if (eventType is not null)
+                if (eventType is not null && configuration.SpecificEventHandlers.TryGetValue(eventType, out var handlers))
                 {
-                    if (configuration.SpecificEventHandlers.TryGetValue(eventType, out var handlers))
-                    {
-                        specificHandlerFound = true;
-                        foreach (var handler in handlers)
-                        {
-                            var method = handler
-                                .GetType()
-                                .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException();
-                            method.Invoke(handler, new[] { aggregate, evt.Payload, evt });
-                        }
-                    }
+                    handlers.Invoke(aggregate, evt.Payload, evt); // TODO: test
+                }
+                else
+                {
+                    configuration.UnexpectedEventHandler.Invoke(aggregate, evt);
                 }
 
-                if (!specificHandlerFound)
-                {
-                    foreach (var handler in configuration.UnexpectedEventHandlers)
-                    {
-                        var method = handler
-                            .GetType()
-                            .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
-                        method.Invoke(handler, new[] { aggregate, evt });
-                    }
-                }
-
-                foreach (var handler in configuration.AnyEventHandlers)
-                {
-                    var method = handler
-                        .GetType()
-                        .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
-                    method.Invoke(handler, new[] { aggregate, evt });
-                }
+                configuration.AnyEventHandler.Invoke(aggregate, evt);
             }
         }
 
         public void Reindex()
         {
             var indexes = new Dictionary<String, Dictionary<Object, List<String>>>(); // Field => Value => Id
-            foreach (var indexFieldName in configuration.Indexes)
+            foreach (var (fieldName, method) in configuration.Indexes)
             {
-                var index = indexes[indexFieldName] = new(); // Value => Id
-
-                var field = configuration.Type.GetField(indexFieldName) ?? throw new InvalidIndexNameException(indexFieldName);
+                var index = indexes[fieldName] = new(); // Value => Id
 
                 foreach (var (id, aggregate) in Aggregates)
                 {
-                    var fieldValue = field.GetValue(aggregate);
+                    var fieldValue = method.Invoke(aggregate, null);
                     if (fieldValue is null) continue; // Index does not currently support NULLs
                     if (!index.TryGetValue(fieldValue, out var ids)) ids = index[fieldValue] = [];
                     ids.Add(id);

@@ -46,6 +46,8 @@ public class ProjectionStoreTests
         projection.Color.Should().Be("BLACK");
     }
     
+    // TODO: Test all types of syncinc
+    
     [Fact]
     public async Task CanLoadRemoteCache()
     {

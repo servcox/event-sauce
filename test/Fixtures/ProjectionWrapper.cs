@@ -33,10 +33,15 @@ public sealed class ProjectionWrapper : IDisposable
         {
             cfg.DefineProjection<Cake>(version: version, b => b
                 .OnCreation((projection, id) => projection.Id = id)
+                .OnEvent<CakeBaked>((projection, body, _) => { })
                 .OnEvent<CakeIced>((projection, body, _) => projection.Color = body.Color)
                 .OnEvent<CakeCut>((projection, body, _) => projection.Slices += body.Slices)
                 .OnUnexpectedEvent((projection, _) => projection.UnexpectedEvents++)
-                .OnAnyEvent((projection, _) => projection.AnyEvents++)
+                .OnAnyEvent((projection, evt) =>
+                {
+                    projection.AnyEvents++;
+                    projection.LastUpdatedAt = evt.At;
+                })
                 .IndexField(nameof(Cake.Color))
             );
             builder?.Invoke(cfg);
@@ -62,14 +67,16 @@ public sealed class ProjectionWrapper : IDisposable
         projection.Slices.Should().Be(4);
         projection.AnyEvents.Should().Be(5);
         projection.UnexpectedEvents.Should().Be(1);
+        projection.LastUpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
     
     public void Assert2(Cake projection)
     {
         projection.Color.Should().Be("GREEN");
         projection.Slices.Should().Be(1);
-        projection.AnyEvents.Should().Be(4);
+        projection.AnyEvents.Should().Be(3);
         projection.UnexpectedEvents.Should().Be(0);
+        projection.LastUpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
     
     public BlobClient GetBlobClient() =>
