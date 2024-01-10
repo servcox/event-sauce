@@ -37,7 +37,6 @@ var aggregate = await cakeProjection.Read(aggregateId);
 var aggregates = cakeProjection.Query(nameof(Cake.Color), "BLUE");
 
 
-
 public record Cake
 {
     public String Id { get; set; } = String.Empty;

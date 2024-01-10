@@ -1,48 +1,24 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.IO.Compression;
-using Azure;
-using Azure.Storage.Blobs;
 using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.Models;
-using Timer = System.Timers.Timer;
 
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable ClassWithVirtualMembersNeverInherited.Global
 
 namespace ServcoX.EventSauce;
 
-public class Projection<TAggregate> : IProjection, IDisposable where TAggregate : new()
+public class Projection<TAggregate> : IProjection where TAggregate : new()
 {
     private readonly EventStore _store;
-    private readonly BlobContainerClient _client;
-    private readonly String _aggregateName;
     private readonly ProjectionConfiguration<TAggregate> _configuration;
-    private readonly Timer _cacheWriteTimer;
-    private readonly String _projectionId;
+    private Dictionary<String, Dictionary<String, List<String>>> _indexes = new(); // Field => Value => Id
+    private readonly ConcurrentDictionary<String, TAggregate> _aggregates = new(); // Id => Projection
 
-    private ProjectionRecord<TAggregate> _record = new();
-    private Boolean _remoteCacheDirty;
-    private Boolean _isDisposed;
-
-    public Projection(Int64 version, EventStore store, BlobContainerClient client, String aggregateName, ProjectionConfiguration<TAggregate> configuration)
+    public Projection(Int64 version, EventStore store, ProjectionConfiguration<TAggregate> configuration)
     {
         _store = store;
-        _client = client;
-        _aggregateName = aggregateName;
         _configuration = configuration;
-        _projectionId = ProjectionId.Compute(typeof(TAggregate), version);
-
-        LoadRemoteCache();
-
-        _cacheWriteTimer = new(_configuration.CacheUpdateInterval.TotalMilliseconds);
-        _cacheWriteTimer.Elapsed += (_, _) =>
-        {
-            WriteRemoteCacheIfDirtyCache();
-            _cacheWriteTimer.Start();
-        };
-        _cacheWriteTimer.AutoReset = false;
-        _cacheWriteTimer.Start();
     }
 
     public async Task<TAggregate> Read(String aggregateId, CancellationToken cancellationToken = default) =>
@@ -51,13 +27,13 @@ public class Projection<TAggregate> : IProjection, IDisposable where TAggregate 
     public async Task<TAggregate?> TryRead(String aggregateId, CancellationToken cancellationToken = default)
     {
         if (_configuration.SyncBeforeReadEnabled) await _store.Sync(cancellationToken).ConfigureAwait(false);
-        return _record.Aggregates.GetValueOrDefault(aggregateId);
+        return _aggregates.GetValueOrDefault(aggregateId);
     }
 
     public async Task<List<TAggregate>> List(CancellationToken cancellationToken = default)
     {
         if (_configuration.SyncBeforeReadEnabled) await _store.Sync(cancellationToken).ConfigureAwait(false);
-        return _record.Aggregates.Values.ToList();
+        return _aggregates.Values.ToList();
     }
 
     public Task<List<TAggregate>> Query(String key, String value, CancellationToken cancellationToken = default) =>
@@ -72,22 +48,22 @@ public class Projection<TAggregate> : IProjection, IDisposable where TAggregate 
         List<String>? candidate = null;
         foreach (var q in query)
         {
-            if (!_record.Indexes.TryGetValue(q.Key, out var index)) throw new MissingIndexException($"No index defined on {typeof(TAggregate).FullName}.{q.Key}");
+            if (!_indexes.TryGetValue(q.Key, out var index)) throw new MissingIndexException($"No index defined on {typeof(TAggregate).FullName}.{q.Key}");
             if (!index.TryGetValue(q.Value, out var matches)) return [];
 
             candidate = candidate is null ? matches : candidate.Intersect(matches).ToList();
             if (candidate.Count == 0) return [];
         }
 
-        return candidate is null ? [] : candidate.Select(id => _record.Aggregates[id]).ToList();
+        return candidate is null ? [] : candidate.Select(id => _aggregates[id]).ToList();
     }
 
     public void ApplyEvents(List<IEgressEvent> events)
     {
-        ProjectEvents(_record.Aggregates, events, _configuration);
-        _record.Indexes = GenerateIndex(_record.Aggregates, _configuration);
+        ProjectEvents(_aggregates, events, _configuration);
+        _indexes = GenerateIndex(_aggregates, _configuration);
     }
-    
+
     private static void ProjectEvents(ConcurrentDictionary<String, TAggregate> aggregates, List<IEgressEvent> events, ProjectionConfiguration<TAggregate> configuration)
     {
         if (aggregates is null) throw new ArgumentNullException(nameof(aggregates));
@@ -140,68 +116,9 @@ public class Projection<TAggregate> : IProjection, IDisposable where TAggregate 
 
         return indexes;
     }
-
-    private void LoadRemoteCache()
-    {
-        var blob = GetCacheBlobClient(_projectionId);
-        try
-        {
-            var content = blob.DownloadContent();
-            using var underlyingStream = content.Value.Content.ToStream();
-            using var decompressedStream = new BrotliStream(underlyingStream, CompressionMode.Decompress);
-            var instance = JsonSerializer.Deserialize<ProjectionRecord<TAggregate>>(decompressedStream)!;
-            _record = instance;
-        }
-        catch (RequestFailedException ex) when (ex.ErrorCode == "BlobNotFound")
-        {
-        }
-    }
-
-    private void WriteRemoteCacheIfDirtyCache()
-    {
-        if (!_remoteCacheDirty) return; // Yep, possible concurrently issue here, but it's only a cache, so not critical
-        _remoteCacheDirty = false;
-
-        using var underlyingStream = new MemoryStream();
-        using (var compressedStream = new BrotliStream(underlyingStream, CompressionLevel.Optimal, true))
-        {
-            JsonSerializer.SerializeAsync(compressedStream, _record);
-        }
-
-        underlyingStream.Rewind();
-
-
-        var blob = GetCacheBlobClient(_projectionId);
-        blob.Upload(underlyingStream, overwrite: true);
-    }
-
-    private BlobClient GetCacheBlobClient(String projectionId) => _client.GetBlobClient($"{_aggregateName}/projection/{projectionId}.json.br");
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(Boolean disposing)
-    {
-        if (_isDisposed) return;
-        if (disposing)
-        {
-            _cacheWriteTimer.Dispose();
-        }
-
-        _isDisposed = true;
-    }
 }
 
 public interface IProjection
 {
     void ApplyEvents(List<IEgressEvent> events);
-}
-
-public class ProjectionRecord<TProjection>
-{
-    public Dictionary<String, Dictionary<String, List<String>>> Indexes { get; set; } = new(); // Field => Value => Id
-    public ConcurrentDictionary<String, TProjection> Aggregates { get; init; } = new(); // Id => Projection
 }

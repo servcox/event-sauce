@@ -22,7 +22,8 @@ public sealed class ProjectionWrapper : IDisposable
     public readonly String AggregateId2 = NewId();
     private readonly String _projectionId;
 
-    public ProjectionWrapper(Action<EventStoreConfiguration>? storeBuilder = null, Action<ProjectionConfiguration<Cake>>? projectionBuilder = null, Boolean prePopulateData = false, Boolean prePopulateCache = false)
+    public ProjectionWrapper(Action<EventStoreConfiguration>? storeBuilder = null, Action<ProjectionConfiguration<Cake>>? projectionBuilder = null, Boolean prePopulateData = false,
+        Boolean prePopulateCache = false)
     {
         const String containerName = "unit-tests";
         Container = new(ConnectionString, containerName);
@@ -31,7 +32,8 @@ public sealed class ProjectionWrapper : IDisposable
         const Int64 version = 1;
         _projectionId = ProjectionId.Compute(typeof(Cake), version);
         _aggregateName = Guid.NewGuid().ToString("N").ToUpperInvariant();
-        EventStore = new(_aggregateName, Container, cfg => { 
+        EventStore = new(_aggregateName, Container, cfg =>
+        {
             cfg.UseTargetBlocksPerSlice(MaxBlocksPerSlice);
             storeBuilder?.Invoke(cfg);
         });
@@ -42,7 +44,7 @@ public sealed class ProjectionWrapper : IDisposable
         Sut = EventStore.Project<Cake>(version: version, cfg =>
         {
             projectionBuilder?.Invoke(cfg);
-            
+
             cfg
                 .OnCreation((projection, id) => projection.Id = id)
                 .OnEvent<CakeBaked>((projection, body, _) => { })

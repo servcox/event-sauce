@@ -40,7 +40,6 @@ public class EventStore : IDisposable
     private readonly String _sliceBlobPathPrefix;
     private readonly String _sliceBlobPathPostfix = ".tsv";
     private readonly BlobContainerClient _client;
-    private readonly String _aggregateName;
 
     private Int64 _currentSliceId;
     private Boolean _isDisposed;
@@ -48,7 +47,6 @@ public class EventStore : IDisposable
     public EventStore(String aggregateName, BlobContainerClient client, Action<EventStoreConfiguration>? builder = null)
     {
         if (aggregateName is null || !AggregateNamePattern.IsMatch(aggregateName)) throw new ArgumentException($"Must not be null and match pattern {AggregateNamePattern}", nameof(aggregateName));
-        _aggregateName = aggregateName;
         _sliceBlobPathPrefix = $"{aggregateName}/event/{aggregateName}.";
         _client = client;
         builder?.Invoke(_configuration);
@@ -118,18 +116,33 @@ public class EventStore : IDisposable
         if (builder is null) throw new ArgumentNullException(nameof(builder));
         var configuration = new ProjectionConfiguration<TProjection>();
         builder(configuration);
-        var projection = new Projection<TProjection>(version, this, _client, _aggregateName, configuration);
-        _projections[type] = projection;
+        var projection = new Projection<TProjection>(version, this,configuration);
+        
+         _syncLock.Wait();
+        try
+        {
+            foreach (var (sliceId, remoteEnd) in _localEnds)
+            {
+                var events =  ReadEvents(sliceId, 0, remoteEnd).Result; // TODO: Only read events once for all projections. Cache?
+                projection.ApplyEvents(events);
+            }
+            
+            _projections[type] = projection;
+        }
+        finally
+        {
+            _syncLock.Release();
+        }
         return projection;
     }
 
-    private readonly ConcurrentDictionary<Int64, Int64> _localEnds = new(); // SliceId => End;
+    private readonly Dictionary<Int64, Int64> _localEnds = new(); // SliceId => End;
 
-    private readonly SemaphoreSlim _loadLock = new(1);
+    private readonly SemaphoreSlim _syncLock = new(1);
 
     public async Task Sync(CancellationToken cancellationToken = default)
     {
-        await _loadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _syncLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var slices = await ListSlices().ConfigureAwait(false);
@@ -137,16 +150,17 @@ public class EventStore : IDisposable
             {
                 _localEnds.TryGetValue(sliceId, out var localEnd);
                 if (localEnd >= remoteEnd) continue;
+                _localEnds[sliceId] = remoteEnd;
 
                 var events = await ReadEvents(sliceId, localEnd, remoteEnd, cancellationToken).ConfigureAwait(false);
                 foreach (var (_, projection) in _projections) projection.ApplyEvents(events);
 
-                _localEnds[sliceId] = remoteEnd;
+                
             }
         }
         finally
         {
-            _loadLock.Release();
+            _syncLock.Release();
         }
     }
 
@@ -238,7 +252,7 @@ public class EventStore : IDisposable
         if (_isDisposed) return;
         if (disposing)
         {
-            _loadLock.Dispose();
+            _syncLock.Dispose();
         }
 
         _isDisposed = true;

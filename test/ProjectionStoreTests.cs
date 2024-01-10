@@ -123,23 +123,6 @@ public class ProjectionStoreTests
     }
 
     [Fact]
-    public async Task CanLoadRemoteCache()
-    {
-        using var wrapper = new ProjectionWrapper(projectionBuilder: cfg => cfg.DoNotSyncBeforeReads(), prePopulateCache: true);
-        var projection = await wrapper.Sut.Read("7ebc5d0faedb416abe895b43c3ccd2eb");
-        projection.Id.Should().Be("7ebc5d0faedb416abe895b43c3ccd2eb");
-    }
-
-    [Fact]
-    public async Task CanWriteRemoteCache()
-    {
-        using var wrapper = new ProjectionWrapper(projectionBuilder: cfg => cfg.WriteRemoteCacheEvery(TimeSpan.FromSeconds(1)), prePopulateData: true);
-        await Task.Delay(2000);
-        var exists = await wrapper.GetBlobClient().ExistsAsync();
-        exists.Value.Should().BeTrue();
-    }
-
-    [Fact]
     public void CanNotUseInvalidIndexName()
     {
         var cfg = new ProjectionConfiguration<Cake>();
