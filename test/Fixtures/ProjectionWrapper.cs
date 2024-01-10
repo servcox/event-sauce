@@ -72,7 +72,7 @@ public sealed class ProjectionWrapper : IDisposable
     public async Task PopulateCache()
     {
         var blob = GetBlobClient();
-        await using var stream = File.OpenRead("TestData/ServcoX.EventSauce.Tests.TestData.Cake@1.brlJHUCgB1E.bois.lz4");
+        await using var stream = File.OpenRead("TestData/ServcoX.EventSauce.Tests.TestData.Cake@1.brlJHUCgB1E.json.br");
         await blob.UploadAsync(stream);
     }
 
@@ -95,7 +95,7 @@ public sealed class ProjectionWrapper : IDisposable
     }
 
     public BlobClient GetBlobClient() =>
-        Container.GetBlobClient($"{_aggregateName}/projection/{_projectionId}.bois.lz4");
+        Container.GetBlobClient($"{_aggregateName}/projection/{_projectionId}.json.br");
 
     public AppendBlobClient GetSliceClient(Int64 sliceId) =>
         Container.GetAppendBlobClient($"{_aggregateName}/event/{_aggregateName}.{sliceId.ToPaddedString()}.tsv");

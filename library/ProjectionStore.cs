@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
-using System.Collections.ObjectModel;
+using System.IO.Compression;
 using Azure;
-using Salar.Bois.LZ4;
+using Azure.Storage.Blobs;
 using ServcoX.EventSauce.Configurations;
 using ServcoX.EventSauce.Models;
 using Timer = System.Timers.Timer;
@@ -184,15 +184,15 @@ public class ProjectionStore : IDisposable
 
     private void LoadRemoteCache()
     {
-        var serializer = new BoisLz4Serializer();
         foreach (var (type, builder) in _configuration.Projections)
         {
-            var blob = _store.UnderlyingContainerClient.GetBlobClient($"{_store.AggregateName}/projection/{builder.Id}.bois.lz4");
+            var blob = GetCacheBlobClient(builder.Id);
             try
             {
                 var content = blob.DownloadContent();
-                using var stream = content.Value.Content.ToStream();
-                var instance = serializer.Unpickle<Instance>(stream);
+                using var underlyingStream = content.Value.Content.ToStream();
+                using var decompressedStream = new BrotliStream(underlyingStream, CompressionMode.Decompress);
+                var instance = JsonSerializer.Deserialize<Instance>(decompressedStream)!;
                 _instances[type] = instance;
             }
             catch (RequestFailedException ex) when (ex.ErrorCode == "BlobNotFound")
@@ -206,19 +206,24 @@ public class ProjectionStore : IDisposable
         if (!_remoteCacheDirty) return; // Yep, possible concurrently issue here, but it's only a cache, so not critical
         _remoteCacheDirty = false;
 
-        var serializer = new BoisLz4Serializer();
         foreach (var (type, instance) in _instances)
         {
-            using var stream = new MemoryStream();
-            serializer.Pickle(instance, stream);
-            stream.Rewind();
+            using var underlyingStream = new MemoryStream();
+            using (var compressedStream = new BrotliStream(underlyingStream, CompressionLevel.Optimal, true))
+            {
+                JsonSerializer.SerializeAsync(compressedStream, instance);
+            }
+
+            underlyingStream.Rewind();
 
             var projectionId = _configuration.Projections[type].Id;
 
-            var blob = _store.UnderlyingContainerClient.GetBlobClient($"{_store.AggregateName}/projection/{projectionId}.bois.lz4");
-            blob.Upload(stream, overwrite: true);
+            var blob = GetCacheBlobClient(projectionId);
+            blob.Upload(underlyingStream, overwrite: true);
         }
     }
+
+    private BlobClient GetCacheBlobClient(String projectionId) => _store.UnderlyingContainerClient.GetBlobClient($"{_store.AggregateName}/projection/{projectionId}.json.br");
 
     private Instance InstanceOfType<TProjection>()
     {
@@ -248,7 +253,7 @@ public class ProjectionStore : IDisposable
 
     private sealed class Instance
     {
-        public Dictionary<String, Dictionary<Object, List<String>>> Indexes = new(); // Field => Value => Id
-        public readonly ConcurrentDictionary<String, Object> Aggregates = new(); // Id => Projection
+        public Dictionary<String, Dictionary<Object, List<String>>> Indexes { get; set; } = new(); // Field => Value => Id
+        public ConcurrentDictionary<String, Object> Aggregates { get; init; } = new(); // Id => Projection
     }
 }

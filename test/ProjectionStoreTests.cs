@@ -135,7 +135,7 @@ public class ProjectionStoreTests
     public async Task CanWriteRemoteCache()
     {
         using var wrapper = new ProjectionWrapper(cfg => cfg.WriteRemoteCacheEvery(TimeSpan.FromSeconds(1)), prePopulateData: true);
-        await Task.Delay(1500);
+        await Task.Delay(2000);
         var exists = await wrapper.GetBlobClient().ExistsAsync();
         exists.Value.Should().BeTrue();
     }

@@ -30,7 +30,6 @@
     <ItemGroup>
         <PackageReference Include="Azure.Data.Tables" Version="12.8.2"/>
         <PackageReference Include="Azure.Storage.Blobs" Version="12.19.1" />
-        <PackageReference Include="Salar.Bois.LZ4" Version="3.4.0" />
         <PackageReference Include="ServcoX.Rfc7515C" Version="1.2.0" />
     </ItemGroup>
 

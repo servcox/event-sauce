@@ -31,7 +31,11 @@
 
     <ItemGroup>
       <None Remove="TestData\ServcoX.EventSauce.Tests.TestData.Cake@1.brlJHUCgB1E.bois.lz4" />
-      <Content Include="TestData\ServcoX.EventSauce.Tests.TestData.Cake@1.brlJHUCgB1E.bois.lz4">
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="TestData\ServcoX.EventSauce.Tests.TestData.Cake@1.brlJHUCgB1E.json.br" />
+      <Content Include="TestData\ServcoX.EventSauce.Tests.TestData.Cake@1.brlJHUCgB1E.json.br">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </Content>
     </ItemGroup>
