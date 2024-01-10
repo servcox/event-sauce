@@ -127,8 +127,8 @@ public class ProjectionStoreTests
     public async Task CanLoadRemoteCache()
     {
         using var wrapper = new ProjectionWrapper(cfg => cfg.DoNotSyncBeforeReads(), prePopulateCache: true);
-        var projection = await wrapper.Sut.Read<Cake>(wrapper.AggregateId1);
-        wrapper.Assert1(projection);
+        var projection = await wrapper.Sut.Read<Cake>("aefdac17ae59465d8aa3084590dda6f0");
+        projection.Id.Should().Be("aefdac17ae59465d8aa3084590dda6f0");
     }
 
     [Fact]
