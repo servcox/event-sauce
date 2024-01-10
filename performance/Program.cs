@@ -5,7 +5,7 @@ using ServcoX.EventSauce.V2;
 using EventStore = ServcoX.EventSauce.EventStore;
 
 const String connectionString = "UseDevelopmentStorage=true;";
-const String containerName = "test";
+
 const String aggregateName = "CAKE";
 
 
@@ -15,6 +15,7 @@ var writeAggregateId = Guid.NewGuid().ToString("N");
 var readAggregateId = Guid.NewGuid().ToString("N");
 var createdBy = Guid.NewGuid().ToString("N");
 
+var containerName = $"test{Guid.NewGuid():N}";
 var container = new BlobContainerClient(connectionString, containerName);
 await container.CreateIfNotExistsAsync();
 var v3Store = new EventStore(container, aggregateName);
@@ -108,7 +109,36 @@ do
     v2Reads++;
 } while (v2ReadStopwatch.Elapsed < allowedTime);
 
-Console.WriteLine("V2 reads/sec: " + (Single)v2Reads / allowedTime.TotalSeconds);
+// V3 Write+Reads
+var v3WriteReads = 0;
+var v3WriteReadStopwatch = Stopwatch.StartNew();
+do
+{
+    var aggregateId = Guid.NewGuid().ToString("N");
+    await v3Store.WriteEvent(aggregateId, new CakeBaked(), new Dictionary<String, String> { ["By"] = createdBy });
+    await v3Store.WriteEvent(aggregateId, new CakeIced("BLUE"), new Dictionary<String, String> { ["By"] = createdBy });
+    await v3Store.WriteEvent(aggregateId, new CakeCut(3), new Dictionary<String, String> { ["By"] = createdBy });
+    await v3Projection.Read(aggregateId);
+    v3WriteReads++;
+} while (v3WriteReadStopwatch.Elapsed < allowedTime);
+
+Console.WriteLine("V3 write+reads/sec: " + (Single)v3WriteReads / allowedTime.TotalSeconds);
+
+// V2 Write+Reads
+var v2WriteReads = 0;
+var v2WriteReadStopwatch = Stopwatch.StartNew();
+do
+{
+    var aggregateId = Guid.NewGuid().ToString("N");
+    await v2Store.CreateStream(aggregateId, aggregateName);
+    await v2Store.WriteEvents(aggregateId, new CakeBaked(), createdBy);
+    await v2Store.WriteEvents(aggregateId, new CakeIced("BLUE"), createdBy);
+    await v2Store.WriteEvents(aggregateId, new CakeCut(3), createdBy);
+    await v2Store.ReadProjection<Cake>(aggregateId);
+    v2WriteReads++;
+} while (v2WriteReadStopwatch.Elapsed < allowedTime);
+
+Console.WriteLine("V2 write+reads/sec: " + (Single)v2WriteReads / allowedTime.TotalSeconds);
 
 container.DeleteIfExists();
 
