@@ -29,10 +29,11 @@ public class ProjectionStore : IDisposable
         configure?.Invoke(_configuration);
         _instances = new(_configuration.Projections.ToDictionary(
             p => p.Key,
-            p => new Instance())
+            _ => new Instance())
         );
 
         LoadRemoteCache();
+        LoadAnyNewEvents(CancellationToken.None).Wait();
 
         _cacheWriteTimer = new(_configuration.CacheUpdateInterval.TotalMilliseconds);
         _cacheWriteTimer.Elapsed += (_, _) =>
@@ -109,8 +110,9 @@ public class ProjectionStore : IDisposable
 
     private void WriteRemoteCacheIfDirtyCache()
     {
-        // TODO: If dirty
-
+        if (!_remoteCacheDirty) return; // Yep, possible concurrently issue here, but it's only a cache, so not critical
+        _remoteCacheDirty = false;
+        
         var serializer = new BoisLz4Serializer();
         foreach (var (type, instance) in _instances)
         {
@@ -127,54 +129,67 @@ public class ProjectionStore : IDisposable
 
     private readonly ConcurrentDictionary<Int64, Int64> _localNextOffsets = new(); // Slice => Offset;
 
+    private readonly SemaphoreSlim _loadLock = new (1);
     private async Task LoadAnyNewEvents(CancellationToken cancellationToken)
     {
-        // TODO: Lock
-        var slices = await _store.ListSlices().ConfigureAwait(false);
-        foreach (var (sliceId, remoteNextOffset, _) in slices)
+        await _loadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            _localNextOffsets.TryGetValue(sliceId, out var localNextOffset);
-            if (localNextOffset >= remoteNextOffset) continue;
-
-            var events = await _store.ReadEvents(sliceId, localNextOffset, remoteNextOffset, cancellationToken).ConfigureAwait(false);
-            foreach (var (type, instance) in _instances)
+            // TODO: Lock
+            var slices = await _store.ListSlices().ConfigureAwait(false);
+            foreach (var (sliceId, remoteNextOffset, _) in slices)
             {
-                var builder = _configuration.Projections[type];
+                _localNextOffsets.TryGetValue(sliceId, out var localNextOffset);
+                if (localNextOffset >= remoteNextOffset) continue;
 
-                foreach (var evt in events)
+                var events = await _store.ReadEvents(sliceId, localNextOffset, remoteNextOffset, cancellationToken).ConfigureAwait(false);
+                foreach (var (type, instance) in _instances)
                 {
-                    if (!instance.Aggregates.TryGetValue(evt.AggregateId, out var aggregate))
-                    {
-                        instance.Aggregates[evt.AggregateId] = aggregate = Activator.CreateInstance(type)!;
-                        foreach (var handler in builder.CreationHandlers)
-                        {
-                            var method = handler
-                                .GetType()
-                                .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
-                            method.Invoke(handler, new[] { aggregate, evt.AggregateId });
-                        }
-                    }
+                    var builder = _configuration.Projections[type];
 
-                    var specificHandlerFound = false;
-                    var eventType = _eventTypeResolver.TryDecode(evt.Type);
-                    if (eventType is not null)
+                    foreach (var evt in events)
                     {
-                        if (builder.SpecificEventHandlers.TryGetValue(eventType, out var handlers))
+                        if (!instance.Aggregates.TryGetValue(evt.AggregateId, out var aggregate))
                         {
-                            specificHandlerFound = true;
-                            foreach (var handler in handlers)
+                            instance.Aggregates[evt.AggregateId] = aggregate = Activator.CreateInstance(type)!;
+                            foreach (var handler in builder.CreationHandlers)
                             {
                                 var method = handler
                                     .GetType()
-                                    .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException();
-                                method.Invoke(handler, new[] { aggregate, evt.Payload, evt });
+                                    .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
+                                method.Invoke(handler, new[] { aggregate, evt.AggregateId });
                             }
                         }
-                    }
 
-                    if (!specificHandlerFound)
-                    {
-                        foreach (var handler in builder.UnexpectedEventHandlers)
+                        var specificHandlerFound = false;
+                        var eventType = _eventTypeResolver.TryDecode(evt.Type);
+                        if (eventType is not null)
+                        {
+                            if (builder.SpecificEventHandlers.TryGetValue(eventType, out var handlers))
+                            {
+                                specificHandlerFound = true;
+                                foreach (var handler in handlers)
+                                {
+                                    var method = handler
+                                        .GetType()
+                                        .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException();
+                                    method.Invoke(handler, new[] { aggregate, evt.Payload, evt });
+                                }
+                            }
+                        }
+
+                        if (!specificHandlerFound)
+                        {
+                            foreach (var handler in builder.UnexpectedEventHandlers)
+                            {
+                                var method = handler
+                                    .GetType()
+                                    .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
+                                method.Invoke(handler, new[] { aggregate, evt });
+                            }
+                        }
+
+                        foreach (var handler in builder.AnyEventHandlers)
                         {
                             var method = handler
                                 .GetType()
@@ -183,36 +198,32 @@ public class ProjectionStore : IDisposable
                         }
                     }
 
-                    foreach (var handler in builder.AnyEventHandlers)
+                    var indexes = new Dictionary<String, Dictionary<Object, List<String>>>(); // Field => Value => Id
+                    foreach (var indexFieldName in builder.Indexes)
                     {
-                        var method = handler
-                            .GetType()
-                            .GetMethod(nameof(Action.Invoke)) ?? throw new NeverException(); // TODO: Better performance by precomputing this?
-                        method.Invoke(handler, new[] { aggregate, evt });
+                        var index = indexes[indexFieldName] = new(); // Value => Id
+
+                        var field = builder.Type.GetField(indexFieldName) ?? throw new InvalidIndexNameException(indexFieldName);
+
+                        foreach (var (id, aggregate) in instance.Aggregates)
+                        {
+                            var fieldValue = field.GetValue(aggregate);
+                            if (fieldValue is null) continue; // Index does not currently support NULLs
+                            if (!index.TryGetValue(fieldValue, out var ids)) ids = index[fieldValue] = [];
+                            ids.Add(id);
+                        }
                     }
+
+                    instance.Indexes = indexes;
                 }
 
-                var indexes = new Dictionary<String, Dictionary<Object, List<String>>>(); // Field => Value => Id
-                foreach (var indexFieldName in builder.Indexes)
-                {
-                    var index = indexes[indexFieldName] = new(); // Value => Id
-
-                    var field = builder.Type.GetField(indexFieldName) ?? throw new InvalidIndexNameException(indexFieldName);
-
-                    foreach (var (id, aggregate) in instance.Aggregates)
-                    {
-                        var fieldValue = field.GetValue(aggregate);
-                        if (fieldValue is null) continue; // Index does not currently support NULLs
-                        if (!index.TryGetValue(fieldValue, out var ids)) ids = index[fieldValue] = [];
-                        ids.Add(id);
-                    }
-                }
-
-                instance.Indexes = indexes;
+                _localNextOffsets[sliceId] = remoteNextOffset;
+                if (events.Count > 0) _remoteCacheDirty = true;
             }
-
-            _localNextOffsets[sliceId] = remoteNextOffset;
-            if (events.Count > 0) _remoteCacheDirty = true;
+        }
+        finally
+        {
+            _loadLock.Release();
         }
     }
 

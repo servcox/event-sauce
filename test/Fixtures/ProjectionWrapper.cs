@@ -1,6 +1,7 @@
 using Azure.Storage.Blobs;
 using FluentAssertions;
 using ServcoX.EventSauce.Configurations;
+// ReSharper disable MemberCanBePrivate.Global
 
 namespace ServcoX.EventSauce.Tests.Fixtures;
 
@@ -13,13 +14,11 @@ public sealed class ProjectionWrapper : IDisposable
     private readonly String _aggregateName;
 
     public const Int32 MaxBlocksPerSlice = 10;
-
     
     public readonly String AggregateId1 = NewId();
     public readonly String AggregateId2 = NewId();
     private readonly String _projectionId;
-
-
+    
     public ProjectionWrapper(Action<ProjectionStoreConfiguration>? builder = null)
     {
         var containerName = "unit-tests";
@@ -34,10 +33,10 @@ public sealed class ProjectionWrapper : IDisposable
         {
             cfg.DefineProjection<Cake>(version: version, b => b
                 .OnCreation((projection, id) => projection.Id = id)
-                .OnEvent<CakeIced>((projection, body, evt) => projection.Color = body.Color)
-                .OnEvent<CakeCut>((projection, body, evt) => projection.Slices += body.Slices)
-                .OnUnexpectedEvent((projection, evt) => projection.UnexpectedEvents++)
-                .OnAnyEvent((projection, evt) => projection.AnyEvents++)
+                .OnEvent<CakeIced>((projection, body, _) => projection.Color = body.Color)
+                .OnEvent<CakeCut>((projection, body, _) => projection.Slices += body.Slices)
+                .OnUnexpectedEvent((projection, _) => projection.UnexpectedEvents++)
+                .OnAnyEvent((projection, _) => projection.AnyEvents++)
                 .IndexField(nameof(Cake.Color))
             );
             builder?.Invoke(cfg);
@@ -53,7 +52,7 @@ public sealed class ProjectionWrapper : IDisposable
         await EventStore.WriteEvent(AggregateId1, new CakeBinned());
         
         await EventStore.WriteEvent(AggregateId2, new CakeBaked());
-        await EventStore.WriteEvent(AggregateId2, new CakeIced { Color = "GREEM" });
+        await EventStore.WriteEvent(AggregateId2, new CakeIced { Color = "GREEN" });
         await EventStore.WriteEvent(AggregateId2, new CakeCut { Slices = 1 });
     }
 
@@ -67,7 +66,7 @@ public sealed class ProjectionWrapper : IDisposable
     
     public void Assert2(Cake projection)
     {
-        projection.Color.Should().Be("GREEM");
+        projection.Color.Should().Be("GREEN");
         projection.Slices.Should().Be(1);
         projection.AnyEvents.Should().Be(4);
         projection.UnexpectedEvents.Should().Be(0);
