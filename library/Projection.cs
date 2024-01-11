@@ -109,8 +109,8 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
             foreach (var (id, aggregate) in aggregates)
             {
                 var value = method.Invoke(aggregate, null);
-                if (value is null) continue; // Index does not currently support NULLs
-                var valueString = value.ToString()!;
+                var valueString = value?.ToString();
+                if (valueString is null) continue; // Index does not currently support NULLs
                 if (!index.TryGetValue(valueString, out var ids)) ids = index[valueString] = [];
                 ids.Add(id);
             }

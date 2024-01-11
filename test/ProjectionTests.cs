@@ -74,6 +74,14 @@ public class ProjectionTests
         var projections = await wrapper.Sut.Query(nameof(Cake.HasBeenIced), true.ToString());
         projections.Count.Should().Be(2);
     }
+    
+    [Fact]
+    public async Task CanGetNoResultsFromEmptyQuery()
+    {
+        using var wrapper = new ProjectionWrapper(prePopulateData: true);
+        var projections = await wrapper.Sut.Query(new Dictionary<String, String>());
+        projections.Count.Should().Be(0);
+    }
 
     [Fact]
     public async Task CanMultiFacetQuery()
