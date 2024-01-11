@@ -16,4 +16,5 @@ public class Cake
     public DateTime LastUpdatedAt { get; set; }
     public Int32 UnexpectedEvents { get; set; }
     public Int32 AnyEvents { get; set; }
+    public Boolean HasBeenIced { get; set; }
 }

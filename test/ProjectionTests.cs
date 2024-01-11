@@ -4,7 +4,7 @@ using ServcoX.EventSauce.Tests.Fixtures;
 
 namespace ServcoX.EventSauce.Tests;
 
-public class ProjectionStoreTests
+public class ProjectionTests
 {
     [Fact]
     public async Task CanRead()
@@ -65,6 +65,14 @@ public class ProjectionStoreTests
         var projections = await wrapper.Sut.Query(nameof(Cake.Slices), "1");
         projections.Count.Should().Be(1);
         wrapper.Assert2(projections[0]);
+    }
+    
+    [Fact]
+    public async Task CanQueryByBoolean()
+    {
+        using var wrapper = new ProjectionWrapper(prePopulateData: true);
+        var projections = await wrapper.Sut.Query(nameof(Cake.HasBeenIced), true.ToString());
+        projections.Count.Should().Be(2);
     }
 
     [Fact]

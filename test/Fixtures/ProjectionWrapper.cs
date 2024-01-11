@@ -48,7 +48,11 @@ public sealed class ProjectionWrapper : IDisposable
             cfg
                 .OnCreation((projection, id) => projection.Id = id)
                 .OnEvent<CakeBaked>((projection, body, _) => { })
-                .OnEvent<CakeIced>((projection, body, _) => projection.Color = body.Color)
+                .OnEvent<CakeIced>((projection, body, _) =>
+                {
+                    projection.Color = body.Color;
+                    projection.HasBeenIced = true;
+                })
                 .OnEvent<CakeCut>((projection, body, _) => projection.Slices += body.Slices)
                 .OnUnexpectedEvent((projection, _) => projection.UnexpectedEvents++)
                 .OnAnyEvent((projection, evt) =>
@@ -57,7 +61,8 @@ public sealed class ProjectionWrapper : IDisposable
                     projection.LastUpdatedAt = evt.At;
                 })
                 .IndexField(nameof(Cake.Color))
-                .IndexField(nameof(Cake.Slices));
+                .IndexField(nameof(Cake.Slices))
+                .IndexField(nameof(Cake.HasBeenIced));
         });
     }
 
