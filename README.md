@@ -21,11 +21,6 @@ Connect to your event store like this:
 var eventStore = new EventStore(connectionString: "UseDevelopmentStorage=true;", containerName: "EventSauce", aggregateName: "CAKE");
 ```
 
-Or if you're using Microsoft DI, then you can use this:
-```c#
-builder.Services.AddEventSauce(connectionString: "UseDevelopmentStorage=true;", containerName: "EventSauce", aggregateName: "CAKE");
-```
-
 Write events like this:
 ```c#
 var aggregateId = Guid.NewGuid().ToString("N");

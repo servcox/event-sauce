@@ -14,8 +14,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{89983A85-C
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "microsoft-di", "microsoft-di\microsoft-di.csproj", "{626B16D0-BEEB-4855-B240-AA8218A34E34}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "performance", "performance\performance.csproj", "{C58D7C9E-B99D-4509-935B-4BCB95630319}"
 EndProject
 Global
@@ -39,10 +37,6 @@ Global
 		{A8359636-10B0-4BC9-86CA-F6A3426F9347}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A8359636-10B0-4BC9-86CA-F6A3426F9347}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A8359636-10B0-4BC9-86CA-F6A3426F9347}.Release|Any CPU.Build.0 = Release|Any CPU
-		{626B16D0-BEEB-4855-B240-AA8218A34E34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{626B16D0-BEEB-4855-B240-AA8218A34E34}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{626B16D0-BEEB-4855-B240-AA8218A34E34}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{626B16D0-BEEB-4855-B240-AA8218A34E34}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C58D7C9E-B99D-4509-935B-4BCB95630319}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C58D7C9E-B99D-4509-935B-4BCB95630319}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C58D7C9E-B99D-4509-935B-4BCB95630319}.Release|Any CPU.ActiveCfg = Release|Any CPU
