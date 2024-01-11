@@ -155,7 +155,7 @@ public class EventStoreTests
 
         var tokens = line.Split("\t");
         tokens[0].Should().Be(aggregateId);
-        DateTime.ParseExact(tokens[1], @"yyyyMMdd\THHmmss\Z", CultureInfo.InvariantCulture).Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+        DateTime.ParseExact(tokens[1], @"yyyyMMdd\THHmmss\Z", CultureInfo.InvariantCulture).Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(10));
         tokens[2].Should().Be(payload.GetType().FullName!.ToUpperInvariant());
         tokens[3].Should().BeEquivalentTo(JsonSerializer.Serialize(payload));
         tokens[4].Should().BeEquivalentTo(JsonSerializer.Serialize(metadata));

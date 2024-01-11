@@ -93,6 +93,7 @@ public sealed class ProjectionWrapper : IDisposable
         projection.AnyEvents.Should().Be(5);
         projection.UnexpectedEvents.Should().Be(1);
         projection.LastUpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        projection.LastUpdatedAt.Kind.Should().Be(DateTimeKind.Utc);
     }
 
     public void Assert2(Cake projection)
@@ -102,6 +103,7 @@ public sealed class ProjectionWrapper : IDisposable
         projection.AnyEvents.Should().Be(3);
         projection.UnexpectedEvents.Should().Be(0);
         projection.LastUpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        projection.LastUpdatedAt.Kind.Should().Be(DateTimeKind.Utc);
     }
 
     public BlobClient GetBlobClient() =>

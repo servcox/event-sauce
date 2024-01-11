@@ -18,7 +18,7 @@ namespace ServcoX.EventSauce;
 
 public class EventStore : IDisposable
 {
-    private const String DateFormatString = @"yyyyMMdd\THHmmss\Z";
+    private const String DateFormatString = @"yyyyMMdd\THHmmssK";
 
     private static readonly BlobHttpHeaders SliceBlobHeaders = new()
     {
@@ -60,10 +60,10 @@ public class EventStore : IDisposable
         builder?.Invoke(_configuration);
 
         _currentSliceId = ListSlices().Result.LastOrDefault().Id;
-        
+
         if (_configuration.SyncInterval.HasValue)
         {
-            _syncTimer = new (_configuration.SyncInterval.Value);
+            _syncTimer = new(_configuration.SyncInterval.Value);
             _syncTimer.Elapsed += async (_, _) =>
             {
                 await Sync().ConfigureAwait(false);
@@ -218,7 +218,8 @@ public class EventStore : IDisposable
             stream.Write(FieldSeparatorBytes);
 
             if (evt.Payload is null) throw new BadEventException("One or more provided payloads are null");
-            var payloadEncoded = JsonSerializer.Serialize((Object)evt.Payload, SerializationOptions); // Must be cast as object, otherwise STJ will only serialize what it sees on IEventPayload (ie, no fields)
+            var payloadEncoded =
+                JsonSerializer.Serialize((Object)evt.Payload, SerializationOptions); // Must be cast as object, otherwise STJ will only serialize what it sees on IEventPayload (ie, no fields)
             stream.WriteAsUtf8(payloadEncoded);
             stream.Write(FieldSeparatorBytes);
 
@@ -241,7 +242,7 @@ public class EventStore : IDisposable
             if (line.Length == 0) continue; // Skip blank lines - used in testing
             var tokens = line.Split(FieldSeparator);
             var aggregateId = tokens[0];
-            var at = DateTime.ParseExact(tokens[1], DateFormatString, CultureInfo.InvariantCulture);
+            var at = DateTime.ParseExact(tokens[1], DateFormatString, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
             var typeName = tokens[2];
             var type = _eventTypeResolver.TryDecode(typeName) ?? typeof(Object);
             var payload = JsonSerializer.Deserialize(tokens[3], type, SerializationOptions) ?? throw new NeverException();
