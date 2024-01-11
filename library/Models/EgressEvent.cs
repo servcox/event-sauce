@@ -1,7 +1,11 @@
 namespace ServcoX.EventSauce.Models;
 
-public interface IEgressEvent : IEvent
+public interface IEgressEvent
 {
+    String AggregateId { get; }
+    Object Payload { get; } // Not IPayload, as we may have an unexpected event in the stream
+    IDictionary<String, String> Metadata { get; }
+    
     String Type { get; }
     DateTime At { get; }
 }

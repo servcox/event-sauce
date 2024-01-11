@@ -11,9 +11,9 @@ Grab it from NuGet from `dotnet add package ServcoX.EventSauce` or `dotnet add p
 # Basic usage
 Define your events like this:
 ```c#
-public readonly record struct CakeBaked;
-public readonly record struct CakeIced(String Color);
-public readonly record struct CakeCut(Int32 Slices);
+public readonly record struct CakeBaked : IEventPayload;
+public readonly record struct CakeIced(String Color) : IEventPayload;
+public readonly record struct CakeCut(Int32 Slices) : IEventPayload;
 ```
 
 Connect to your event store like this:

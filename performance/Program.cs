@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
+using ServcoX.EventSauce;
 using ServcoX.EventSauce.V2;
 using EventStore = ServcoX.EventSauce.EventStore;
 
@@ -157,8 +158,8 @@ public record Cake
     public DateTime LastUpdatedAt { get; set; }
 }
 
-public readonly record struct CakeBaked : IEventBody;
+public readonly record struct CakeBaked : IEventBody, IEventPayload;
 
-public readonly record struct CakeIced(String Color) : IEventBody;
+public readonly record struct CakeIced(String Color) : IEventBody, IEventPayload;
 
-public readonly record struct CakeCut(Int32 Slices) : IEventBody;
+public readonly record struct CakeCut(Int32 Slices) : IEventBody, IEventPayload;

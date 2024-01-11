@@ -8,7 +8,7 @@ const String aggregateName = "CAKE";
 
 var container = new BlobContainerClient(connectionString, containerName);
 await container.CreateIfNotExistsAsync();
-var store = new EventStore(container, aggregateName,cfg => cfg
+var store = new EventStore(container, aggregateName, cfg => cfg
     .SyncEvery(TimeSpan.FromMinutes(15))
     .DoNotSyncBeforeReads());
 
@@ -48,8 +48,8 @@ public record Cake
     public DateTime LastUpdatedAt { get; set; }
 }
 
-public readonly record struct CakeBaked;
+public readonly record struct CakeBaked : IEventPayload;
 
-public readonly record struct CakeIced(String Color);
+public readonly record struct CakeIced(String Color) : IEventPayload;
 
-public readonly record struct CakeCut(Int32 Slices);
+public readonly record struct CakeCut(Int32 Slices) : IEventPayload;

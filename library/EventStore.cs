@@ -74,8 +74,8 @@ public class EventStore : IDisposable
         }
     }
 
-    public Task WriteEvent(String aggregateId, Object payload, IDictionary<String, String>? metadata = default, CancellationToken cancellationToken = default) =>
-        WriteEvent(new Event { AggregateId = aggregateId, Payload = payload, Metadata = metadata ?? new Dictionary<String, String>() }, cancellationToken);
+    public Task WriteEvent(String aggregateId, IEventPayload eventPayload, IDictionary<String, String>? metadata = default, CancellationToken cancellationToken = default) =>
+        WriteEvent(new Event { AggregateId = aggregateId, EventPayload = eventPayload, Metadata = metadata ?? new Dictionary<String, String>() }, cancellationToken);
 
     public Task WriteEvent(IEvent evt, CancellationToken cancellationToken = default) =>
         WriteEvents(new List<IEvent> { evt }, cancellationToken);
@@ -213,12 +213,12 @@ public class EventStore : IDisposable
             stream.WriteAsUtf8(at);
             stream.Write(FieldSeparatorBytes);
 
-            var typeName = _eventTypeResolver.Encode(evt.Payload.GetType());
+            var typeName = _eventTypeResolver.Encode(evt.EventPayload.GetType());
             stream.WriteAsUtf8(typeName);
             stream.Write(FieldSeparatorBytes);
 
-            if (evt.Payload is null) throw new BadEventException("One or more provided payloads are null");
-            var payloadEncoded = JsonSerializer.Serialize(evt.Payload, SerializationOptions);
+            if (evt.EventPayload is null) throw new BadEventException("One or more provided payloads are null");
+            var payloadEncoded = JsonSerializer.Serialize((Object)evt.EventPayload, SerializationOptions); // Must be cast as object, otherwise STJ will only serialize what it sees on IEventPayload (ie, no fields)
             stream.WriteAsUtf8(payloadEncoded);
             stream.Write(FieldSeparatorBytes);
 
