@@ -74,8 +74,14 @@ public class EventStore : IDisposable
         }
     }
 
-    public Task WriteEvent(String aggregateId, IEventPayload eventPayload, IDictionary<String, String>? metadata = default, CancellationToken cancellationToken = default) =>
-        WriteEvent(new Event { AggregateId = aggregateId, Payload = eventPayload, Metadata = metadata ?? new Dictionary<String, String>() }, cancellationToken);
+    public Task WriteEvent(String aggregateId, IEventPayload eventPayload, IDictionary<String, String>? metadata = default, DateTime? at = null, CancellationToken cancellationToken = default) =>
+        WriteEvent(new Event
+        {
+            AggregateId = aggregateId,
+            Payload = eventPayload,
+            Metadata = metadata ?? new Dictionary<String, String>(),
+            At = at
+        }, cancellationToken);
 
     public Task WriteEvent(IEvent evt, CancellationToken cancellationToken = default) =>
         WriteEvents(new List<IEvent> { evt }, cancellationToken);
@@ -202,7 +208,7 @@ public class EventStore : IDisposable
 
     private MemoryStream EncodeEventsAsStream(IEnumerable<IEvent> events)
     {
-        var at = DateTime.UtcNow.ToString(DateFormatString, CultureInfo.InvariantCulture);
+        var defaultAt = DateTime.UtcNow;
         var stream = new MemoryStream();
         foreach (var evt in events)
         {
@@ -210,7 +216,8 @@ public class EventStore : IDisposable
             stream.WriteAsUtf8(evt.AggregateId);
             stream.Write(FieldSeparatorBytes);
 
-            stream.WriteAsUtf8(at);
+            var at = evt.At ?? defaultAt;
+            stream.WriteAsUtf8(at.ToString(DateFormatString, CultureInfo.InvariantCulture));
             stream.Write(FieldSeparatorBytes);
 
             var typeName = _eventTypeResolver.Encode(evt.Payload.GetType());

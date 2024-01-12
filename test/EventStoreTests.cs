@@ -41,6 +41,18 @@ public class EventStoreTests
         AssertEvent(reader, aggregateId, TestPayloads.B, TestMetadata.B);
         AssertEvent(reader, aggregateId, TestPayloads.C, TestMetadata.C);
     }
+    
+    [Fact]
+    public async Task CanWriteWithSpecificAt()
+    {
+        using var wrapper = new EventWrapper();
+        var aggregateId = NewId();
+        var at = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
+        await wrapper.Sut.WriteEvent(aggregateId, new CakeBaked(), at:at );
+
+        var events = await wrapper.Sut.ReadEvents(0, 0);
+        events[0].At.Should().Be(at);
+    }
 
     [Fact]
     public async Task CanWriteOverlapping()
