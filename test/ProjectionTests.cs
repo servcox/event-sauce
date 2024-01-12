@@ -76,11 +76,11 @@ public class ProjectionTests
     }
     
     [Fact]
-    public async Task CanGetNoResultsFromEmptyQuery()
+    public async Task CanEmptyQueryAll()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
         var projections = await wrapper.Sut.Query(new Dictionary<String, String>());
-        projections.Count.Should().Be(0);
+        projections.Count.Should().Be(2);
     }
 
     [Fact]

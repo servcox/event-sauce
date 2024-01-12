@@ -48,6 +48,8 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
 
         if (_syncBeforeReads) await _store.Sync(cancellationToken).ConfigureAwait(false);
 
+        if (query.Count == 0) return await List(cancellationToken).ConfigureAwait(false);
+        
         List<String>? candidate = null;
         foreach (var q in query)
         {
