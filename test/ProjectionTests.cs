@@ -53,7 +53,7 @@ public class ProjectionTests
     public async Task CanQueryByString()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
-        var projections = await wrapper.Sut.Query(nameof(Cake.Color), "GREEN");
+        var projections = await wrapper.Sut.List(nameof(Cake.Color), "GREEN");
         projections.Count.Should().Be(1);
         wrapper.Assert2(projections[0]);
     }
@@ -62,7 +62,7 @@ public class ProjectionTests
     public async Task CanQueryByNumber()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
-        var projections = await wrapper.Sut.Query(nameof(Cake.Slices), "1");
+        var projections = await wrapper.Sut.List(nameof(Cake.Slices), "1");
         projections.Count.Should().Be(1);
         wrapper.Assert2(projections[0]);
     }
@@ -71,7 +71,7 @@ public class ProjectionTests
     public async Task CanQueryByBoolean()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
-        var projections = await wrapper.Sut.Query(nameof(Cake.HasBeenIced), true.ToString());
+        var projections = await wrapper.Sut.List(nameof(Cake.HasBeenIced), true.ToString());
         projections.Count.Should().Be(2);
     }
     
@@ -79,7 +79,7 @@ public class ProjectionTests
     public async Task CanEmptyQueryAll()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
-        var projections = await wrapper.Sut.Query(new Dictionary<String, String>());
+        var projections = await wrapper.Sut.List(new Dictionary<String, String>());
         projections.Count.Should().Be(2);
     }
 
@@ -87,7 +87,7 @@ public class ProjectionTests
     public async Task CanMultiFacetQuery()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
-        var projections = await wrapper.Sut.Query(new Dictionary<String, String>
+        var projections = await wrapper.Sut.List(new Dictionary<String, String>
         {
             [nameof(Cake.Color)] = "GREEN",
             [nameof(Cake.Slices)] = "1",
@@ -100,7 +100,7 @@ public class ProjectionTests
     public async Task CanFindNothingWithBadQuery()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
-        var projections = await wrapper.Sut.Query(nameof(Cake.Color), "BANANANA");
+        var projections = await wrapper.Sut.List(nameof(Cake.Color), "BANANANA");
         projections.Count.Should().Be(0);
     }
 
@@ -108,7 +108,7 @@ public class ProjectionTests
     public async Task CanNotQueryWithoutIndex()
     {
         using var wrapper = new ProjectionWrapper(prePopulateData: true);
-        await Assert.ThrowsAsync<MissingIndexException>(() => wrapper.Sut.Query(nameof(Cake.Id), "BANANANA"));
+        await Assert.ThrowsAsync<MissingIndexException>(() => wrapper.Sut.List(nameof(Cake.Id), "BANANANA"));
     }
 
     [Fact]

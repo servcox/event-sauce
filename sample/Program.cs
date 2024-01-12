@@ -37,7 +37,7 @@ var cakeProjection = store.Project<Cake>(version: 1, builder => builder
 await store.Sync();
 var aggregate = await cakeProjection.Read(aggregateId);
 
-var aggregates = cakeProjection.Query(nameof(Cake.Color), "BLUE");
+var aggregates = cakeProjection.List(nameof(Cake.Color), "BLUE");
 
 
 public record Cake

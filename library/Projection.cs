@@ -39,24 +39,23 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
         return _aggregates.Values.ToList();
     }
 
-    public Task<List<TAggregate>> Query(String key, String value, CancellationToken cancellationToken = default) =>
-        Query(new Dictionary<String, String> { [key] = value }, cancellationToken);
+    public Task<List<TAggregate>> List(String filterKey, String filterValue, CancellationToken cancellationToken = default) =>
+        List(new Dictionary<String, String> { [filterKey] = filterValue }, cancellationToken);
 
-    public async Task<List<TAggregate>> Query(IDictionary<String, String> query, CancellationToken cancellationToken = default)
+    public async Task<List<TAggregate>> List(IDictionary<String, String> filters, CancellationToken cancellationToken = default)
     {
-        if (query is null) throw new ArgumentNullException(nameof(query));
+        if (filters is null) throw new ArgumentNullException(nameof(filters));
 
         if (_syncBeforeReads) await _store.Sync(cancellationToken).ConfigureAwait(false);
 
-        if (query.Count == 0) return await List(cancellationToken).ConfigureAwait(false);
-        
+        if (filters.Count == 0) return await List(cancellationToken).ConfigureAwait(false);
+
         List<String>? candidate = null;
-        foreach (var q in query)
+        foreach (var filter in filters)
         {
-            if (!_indexes.TryGetValue(q.Key, out var index))
-                throw new MissingIndexException(
-                    $"No index defined for '{q.Key}' on '{typeof(TAggregate).FullName}'. Current indexes are '{String.Join(',', _indexes.Keys)}'\n\nHave you missed defining the index? Have you missed an initial sync?");
-            if (!index.TryGetValue(q.Value, out var matches)) return [];
+            if (!_indexes.TryGetValue(filter.Key, out var index))
+                throw new MissingIndexException($"Filter keys must be pre-indexed and there is not am index defined for '{filter.Key}'. Current indexes on '{String.Join(',', _indexes.Keys)}'");
+            if (!index.TryGetValue(filter.Value, out var matches)) return [];
 
             candidate = candidate is null ? matches : candidate.Intersect(matches).ToList();
             if (candidate.Count == 0) return [];
