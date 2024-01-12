@@ -33,6 +33,20 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
         return _aggregates.GetValueOrDefault(aggregateId);
     }
 
+    public async Task<List<TAggregate>> ReadMany(IEnumerable<String> aggregateIds, CancellationToken  cancellationToken= default)
+    {
+        if (aggregateIds is null) throw new ArgumentNullException(nameof(aggregateIds));
+        
+        if (_syncBeforeReads) await _store.Sync(cancellationToken).ConfigureAwait(false);
+
+        var output = new List<TAggregate>();
+        foreach (var aggregateId in aggregateIds)
+        {
+            if(_aggregates.TryGetValue(aggregateId, out var aggregate)) output.Add(aggregate);
+        }
+
+        return output;
+    }
     public async Task<List<TAggregate>> List(CancellationToken cancellationToken = default)
     {
         if (_syncBeforeReads) await _store.Sync(cancellationToken).ConfigureAwait(false);

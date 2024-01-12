@@ -38,6 +38,17 @@ public class ProjectionTests
         var projection = await wrapper.Sut.TryRead("bad");
         projection.Should().BeNull();
     }
+    
+    [Fact]
+    public async Task CanReadMany()
+    {
+        using var wrapper = new ProjectionWrapper();
+        await wrapper.PopulateTestData();
+        var aggregates = await wrapper.Sut.ReadMany(new []{wrapper.AggregateId1,wrapper.AggregateId2});
+        aggregates.Count.Should().Be(2);
+        aggregates.Should().ContainSingle(aggregate => aggregate.Id == wrapper.AggregateId1);
+        aggregates.Should().ContainSingle(aggregate => aggregate.Id == wrapper.AggregateId2);
+    }
 
     [Fact]
     public async Task CanList()
