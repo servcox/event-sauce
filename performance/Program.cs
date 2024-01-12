@@ -5,7 +5,8 @@ using ServcoX.EventSauce;
 using ServcoX.EventSauce.V2;
 using EventStore = ServcoX.EventSauce.EventStore;
 
-const String connectionString = "UseDevelopmentStorage=true;";
+const String v3ConnectionString = "UseDevelopmentStorage=true;";
+const String v2ConnectionString = "UseDevelopmentStorage=true;";
 const String aggregateName = "CAKE";
 
 /* Local emulated:
@@ -33,7 +34,7 @@ var readAggregateId = Guid.NewGuid().ToString("N");
 var createdBy = Guid.NewGuid().ToString("N");
 
 var containerName = $"test{Guid.NewGuid():N}";
-var container = new BlobContainerClient(connectionString, containerName);
+var container = new BlobContainerClient(v3ConnectionString, containerName);
 await container.CreateIfNotExistsAsync();
 var v3Store = new EventStore(container, aggregateName, cfg => cfg
     .DoNotSyncBeforeReads());
@@ -53,16 +54,16 @@ var streamTableName = $"stream{postfix}";
 var eventTableName = $"event{postfix}";
 var projectionTableName = $"projection{postfix}";
 
-var streamTable = new TableClient(connectionString, streamTableName);
+var streamTable = new TableClient(v2ConnectionString, streamTableName);
 streamTable.Create();
 
-var eventTable = new TableClient(connectionString, eventTableName);
+var eventTable = new TableClient(v2ConnectionString, eventTableName);
 eventTable.Create();
 
-var projectionTable = new TableClient(connectionString, projectionTableName);
+var projectionTable = new TableClient(v2ConnectionString, projectionTableName);
 projectionTable.Create();
 
-var v2Store = new ServcoX.EventSauce.V2.EventStore(connectionString, cfg => cfg
+var v2Store = new ServcoX.EventSauce.V2.EventStore(v2ConnectionString, cfg => cfg
     .UseStreamTable(streamTableName)
     .UseEventTable(eventTableName)
     .UseProjectionTable(projectionTableName)
