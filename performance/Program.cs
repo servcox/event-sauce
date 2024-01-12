@@ -8,6 +8,24 @@ using EventStore = ServcoX.EventSauce.EventStore;
 const String connectionString = "UseDevelopmentStorage=true;";
 const String aggregateName = "CAKE";
 
+/* Local emulated:
+    V3 writes/sec: 94
+    V2 writes/sec: 319
+    V3 reads/sec: 4525788
+    V2 reads/sec: 4076.8
+    V3 write+reads/sec: 30.8
+    V2 write+reads/sec: 104
+*/
+
+/* Standard storage:
+    V3 writes/sec: 9.8
+    V2 writes/sec: 4
+    V3 reads/sec: 4391639.6
+    V2 reads/sec: 27.6
+    V3 write+reads/sec: 2.6
+    V2 write+reads/sec: 1.4
+*/
+
 var allowedTime = TimeSpan.FromSeconds(5);
 
 var writeAggregateId = Guid.NewGuid().ToString("N");
