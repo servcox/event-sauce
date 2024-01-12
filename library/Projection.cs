@@ -21,6 +21,7 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
         _store = store;
         _syncBeforeReads = syncBeforeReads;
         _configuration = configuration;
+        RegenerateIndexes();
     }
 
     public async Task<TAggregate> Read(String aggregateId, CancellationToken cancellationToken = default) =>
@@ -50,7 +51,9 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
         List<String>? candidate = null;
         foreach (var q in query)
         {
-            if (!_indexes.TryGetValue(q.Key, out var index)) throw new MissingIndexException($"No index defined on {typeof(TAggregate).FullName}.{q.Key}");
+            if (!_indexes.TryGetValue(q.Key, out var index))
+                throw new MissingIndexException(
+                    $"No index defined for '{q.Key}' on '{typeof(TAggregate).FullName}'. Current indexes are '{String.Join(',', _indexes.Keys)}'\n\nHave you missed defining the index? Have you missed an initial sync?");
             if (!index.TryGetValue(q.Value, out var matches)) return [];
 
             candidate = candidate is null ? matches : candidate.Intersect(matches).ToList();
@@ -62,51 +65,46 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
 
     public void ApplyEvents(List<IEgressEvent> events)
     {
-        ProjectEvents(_aggregates, events, _configuration);
-        _indexes = GenerateIndex(_aggregates, _configuration);
+        ProjectEvents(events);
+        RegenerateIndexes();
     }
 
-    private static void ProjectEvents(ConcurrentDictionary<String, TAggregate> aggregates, List<IEgressEvent> events, ProjectionConfiguration<TAggregate> configuration)
+    private void ProjectEvents(List<IEgressEvent> events)
     {
-        if (aggregates is null) throw new ArgumentNullException(nameof(aggregates));
         if (events is null) throw new ArgumentNullException(nameof(events));
-        if (configuration is null) throw new ArgumentNullException(nameof(configuration));
 
         foreach (var evt in events)
         {
-            if (!aggregates.TryGetValue(evt.AggregateId, out var aggregate))
+            if (!_aggregates.TryGetValue(evt.AggregateId, out var aggregate))
             {
-                aggregates[evt.AggregateId] = aggregate = new();
-                configuration.CreationHandler.Invoke(aggregate, evt.AggregateId);
+                _aggregates[evt.AggregateId] = aggregate = new();
+                _configuration.CreationHandler.Invoke(aggregate, evt.AggregateId);
             }
 
             Debug.Assert(aggregate != null, nameof(aggregate) + " != null");
 
             var eventType = EventTypeResolver.Shared.TryDecode(evt.Type);
-            if (eventType is not null && configuration.SpecificEventHandlers.TryGetValue(eventType, out var handlers))
+            if (eventType is not null && _configuration.SpecificEventHandlers.TryGetValue(eventType, out var handlers))
             {
                 handlers.Invoke(aggregate, evt.Payload, evt);
             }
             else
             {
-                configuration.UnexpectedEventHandler.Invoke(aggregate, evt);
+                _configuration.UnexpectedEventHandler.Invoke(aggregate, evt);
             }
 
-            configuration.AnyEventHandler.Invoke(aggregate, evt);
+            _configuration.AnyEventHandler.Invoke(aggregate, evt);
         }
     }
 
-    private static Dictionary<String, Dictionary<String, List<String>>> GenerateIndex(ConcurrentDictionary<String, TAggregate> aggregates, ProjectionConfiguration<TAggregate> configuration)
+    private void RegenerateIndexes()
     {
-        if (aggregates is null) throw new ArgumentNullException(nameof(aggregates));
-        if (configuration is null) throw new ArgumentNullException(nameof(configuration));
-
         var indexes = new Dictionary<String, Dictionary<String, List<String>>>(); // Field => Value => Id
-        foreach (var (fieldName, method) in configuration.Indexes)
+        foreach (var (fieldName, method) in _configuration.Indexes)
         {
             var index = indexes[fieldName] = new(); // Value => Id
 
-            foreach (var (id, aggregate) in aggregates)
+            foreach (var (id, aggregate) in _aggregates)
             {
                 var value = method.Invoke(aggregate, null);
                 var valueString = value?.ToString();
@@ -116,7 +114,7 @@ public class Projection<TAggregate> : IProjection where TAggregate : new()
             }
         }
 
-        return indexes;
+        _indexes = indexes;
     }
 }
 
