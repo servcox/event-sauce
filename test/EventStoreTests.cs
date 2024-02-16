@@ -43,6 +43,13 @@ public class EventStoreTests
     }
     
     [Fact]
+    public async Task CanWriteZero()
+    {
+        using var wrapper = new EventWrapper();
+        await wrapper.Sut.WriteEvents(new List<Event>());
+    }
+    
+    [Fact]
     public async Task CanWriteWithSpecificAt()
     {
         using var wrapper = new EventWrapper();

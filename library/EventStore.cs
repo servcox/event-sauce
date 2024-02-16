@@ -94,6 +94,7 @@ public class EventStore : IDisposable
         if (events is null) throw new ArgumentNullException(nameof(events));
 
         using var stream = EncodeEventsAsStream(events);
+        if (stream.Length == 0) return;
         var blob = await GetCurrentSliceBlob(cancellationToken).ConfigureAwait(false);
         if (stream.Length > blob.AppendBlobMaxAppendBlockBytes)
             throw new TransactionTooLargeException($"Encoded events is is {stream.Length} bytes, which exceeds limits of {blob.AppendBlobMaxAppendBlockBytes} bytes. Write less or smaller events.");
