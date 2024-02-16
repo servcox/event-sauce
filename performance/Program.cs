@@ -2,7 +2,6 @@
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
 using ServcoX.EventSauce;
-using ServcoX.EventSauce.V2;
 using EventStore = ServcoX.EventSauce.EventStore;
 
 const String v3ConnectionString = "UseDevelopmentStorage=true;";
@@ -63,21 +62,6 @@ eventTable.Create();
 var projectionTable = new TableClient(v2ConnectionString, projectionTableName);
 projectionTable.Create();
 
-var v2Store = new ServcoX.EventSauce.V2.EventStore(v2ConnectionString, cfg => cfg
-    .UseStreamTable(streamTableName)
-    .UseEventTable(eventTableName)
-    .UseProjectionTable(projectionTableName)
-    .RefreshProjectionsAfterWriting()
-    .DefineProjection<Cake>(streamType: "CAKE", version: 1, builder => builder
-        .OnCreation((projection, id) => projection.Id = id)
-        .OnEvent<CakeBaked>((_, _, _) => { })
-        .OnEvent<CakeIced>((projection, body, _) => projection.Color = body.Color)
-        .OnEvent<CakeCut>((projection, body, _) => projection.Slices += body.Slices)
-        .OnUnexpectedEvent((_, evt) => Console.Error.WriteLine($"Unexpected event ${evt.Type} encountered"))
-        .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.CreatedAt)
-        .Index(nameof(Cake.Color), projection => projection.Color)
-    ));
-
 // V3 Writes
 var v3Writes = 0;
 var v3WriteStopwatch = Stopwatch.StartNew();
@@ -88,18 +72,6 @@ do
 } while (v3WriteStopwatch.Elapsed < allowedTime);
 
 Console.WriteLine("V3 writes/sec: " + (Single)v3Writes / allowedTime.TotalSeconds);
-
-// V2 Writes
-var v2Writes = 0;
-var v2WriteStopwatch = Stopwatch.StartNew();
-await v2Store.CreateStream(writeAggregateId, aggregateName);
-do
-{
-    await v2Store.WriteEvents(writeAggregateId, new CakeBaked(), createdBy);
-    v2Writes++;
-} while (v2WriteStopwatch.Elapsed < allowedTime);
-
-Console.WriteLine("V2 writes/sec: " + (Single)v2Writes / allowedTime.TotalSeconds);
 
 // V3 Reads
 await v3Store.WriteEvent(readAggregateId, new CakeBaked(), new Dictionary<String, String> { ["By"] = createdBy });
@@ -115,21 +87,6 @@ do
 } while (v3ReadStopwatch.Elapsed < allowedTime);
 
 Console.WriteLine("V3 reads/sec: " + (Single)v3Reads / allowedTime.TotalSeconds);
-
-// V2 Reads
-await v2Store.CreateStream(readAggregateId, aggregateName);
-await v2Store.WriteEvents(readAggregateId, new CakeBaked(), createdBy);
-await v2Store.WriteEvents(readAggregateId, new CakeIced("BLUE"), createdBy);
-await v2Store.WriteEvents(readAggregateId, new CakeCut(3), createdBy);
-var v2Reads = 0;
-var v2ReadStopwatch = Stopwatch.StartNew();
-do
-{
-    await v2Store.ReadProjection<Cake>(readAggregateId);
-    v2Reads++;
-} while (v2ReadStopwatch.Elapsed < allowedTime);
-
-Console.WriteLine("V2 reads/sec: " + (Single)v2Reads / allowedTime.TotalSeconds);
 
 // V3 Write+Reads
 var v3WriteReads = 0;
@@ -147,22 +104,6 @@ do
 
 Console.WriteLine("V3 write+reads/sec: " + (Single)v3WriteReads / allowedTime.TotalSeconds);
 
-// V2 Write+Reads
-var v2WriteReads = 0;
-var v2WriteReadStopwatch = Stopwatch.StartNew();
-do
-{
-    var aggregateId = Guid.NewGuid().ToString("N");
-    await v2Store.CreateStream(aggregateId, aggregateName);
-    await v2Store.WriteEvents(aggregateId, new CakeBaked(), createdBy);
-    await v2Store.WriteEvents(aggregateId, new CakeIced("BLUE"), createdBy);
-    await v2Store.WriteEvents(aggregateId, new CakeCut(3), createdBy);
-    await v2Store.ReadProjection<Cake>(aggregateId);
-    v2WriteReads++;
-} while (v2WriteReadStopwatch.Elapsed < allowedTime);
-
-Console.WriteLine("V2 write+reads/sec: " + (Single)v2WriteReads / allowedTime.TotalSeconds);
-
 container.DeleteIfExists();
 
 streamTable.Delete();
@@ -177,8 +118,8 @@ public record Cake
     public DateTime LastUpdatedAt { get; set; }
 }
 
-public readonly record struct CakeBaked : IEventBody, IEventPayload;
+public readonly record struct CakeBaked : IEventPayload;
 
-public readonly record struct CakeIced(String Color) : IEventBody, IEventPayload;
+public readonly record struct CakeIced(String Color) : IEventPayload;
 
-public readonly record struct CakeCut(Int32 Slices) : IEventBody, IEventPayload;
+public readonly record struct CakeCut(Int32 Slices) : IEventPayload;
