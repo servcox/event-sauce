@@ -8,7 +8,7 @@ namespace ServcoX.EventSauce.Configurations;
 
 public sealed class ProjectionConfiguration<TAggregate> where TAggregate : new()
 {
-    internal GenericAction CreationHandler { get; private set; } = new(new Action<TAggregate, IEgressEvent>((_, _) => { }));
+    internal GenericAction CreationHandler { get; private set; } = new(new Action<TAggregate, String>((_, _) => { }));
 
     public ProjectionConfiguration<TAggregate> OnCreation(Action<TAggregate, String> action)
     {
