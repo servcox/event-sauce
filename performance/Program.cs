@@ -1,8 +1,7 @@
 ﻿using System.Diagnostics;
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
-using ServcoX.EventSauce;
-using EventStore = ServcoX.EventSauce.EventStore;
+using ServcoX.EventSauce.V3;
 
 const String v3ConnectionString = "UseDevelopmentStorage=true;";
 const String v2ConnectionString = "UseDevelopmentStorage=true;";

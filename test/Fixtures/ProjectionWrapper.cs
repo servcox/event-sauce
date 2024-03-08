@@ -1,8 +1,6 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using FluentAssertions;
-using ServcoX.EventSauce.Configurations;
-using ServcoX.EventSauce.Extensions;
 
 // ReSharper disable MemberCanBePrivate.Global
 

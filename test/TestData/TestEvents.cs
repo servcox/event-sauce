@@ -1,5 +1,5 @@
-using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.Tests.Fixtures;
+using ServcoX.EventSauce.V3.Models;
 
 namespace ServcoX.EventSauce.Tests.TestData;
 

@@ -1,7 +1,5 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
-using ServcoX.EventSauce.Configurations;
-using ServcoX.EventSauce.Extensions;
 
 namespace ServcoX.EventSauce.Tests.Fixtures;
 

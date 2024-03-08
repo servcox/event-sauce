@@ -1,9 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using FluentAssertions;
-using ServcoX.EventSauce.Models;
 using ServcoX.EventSauce.Tests.Fixtures;
-using Event = ServcoX.EventSauce.Models.Event;
 
 namespace ServcoX.EventSauce.Tests;
 
@@ -57,7 +55,7 @@ public class EventStoreTests
         var at = new DateTime(2001, 1, 1, 1, 1, 1, DateTimeKind.Utc);
         await wrapper.Sut.WriteEvent(aggregateId, new CakeBaked(), at:at );
 
-        var events = await wrapper.Sut.ReadEvents(0, 0);
+        var events = await wrapper.Sut.ReadEvents(0);
         events[0].At.Should().Be(at);
     }
 
