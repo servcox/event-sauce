@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace ServcoX.EventSauce;
@@ -47,16 +48,15 @@ public static class EventStream
         return stream;
     }
 
-    public static List<EventRecord> Decode(Stream stream)
+    public static List<Record> Decode(Stream stream)
     {
-        var output = new List<EventRecord>();
+        var output = new List<Record>();
 
-        var reader = new StreamLineReader(stream);
-        while (reader.TryReadLine() is { } line)
+        using var reader = new StreamReader(stream, Encoding.UTF8, false, -1024*1024, true);
+        
+        while (reader.ReadLine() is { } line)
         {
-            var length = line.Length;
-            if (length == 0) continue; // Skip blank lines - used in testing
-            var startPosition = reader.Position - length;
+            if (line.Length == 0) continue; // Skip blank lines - used in testing
 
             var tokens = line.Split(FieldSeparator);
             if (tokens.Length != 3) throw new BadEventException("Event does not have exactly three tokens");
@@ -70,9 +70,7 @@ public static class EventStream
             (
                 at,
                 eventType,
-                evt,
-                startPosition,
-                length
+                evt
             ));
         }
 

@@ -24,9 +24,12 @@ public sealed class EventType
     
     private static readonly ConcurrentDictionary<String, Type> KnownEventBodies = new();
 
+    public static void Register<T>() => Register(typeof(T));
+    
     public static void Register(Type type)
     {
         ArgumentNullException.ThrowIfNull(type);
+        
         var eventType = Encode(type);
         KnownEventBodies[eventType] = type;
     }

@@ -12,7 +12,7 @@ public sealed class EventWrapper : IDisposable
 
     public const Int32 MaxBlocksPerSlice = 10;
 
-    public EventWrapper(Action<EventStoreConfiguration>? builder = null)
+    public EventWrapper(Action<V3.Configurations.EventStoreConfiguration>? builder = null)
     {
         var containerName = "unit-tests";
         Container = new(ConnectionString, containerName);

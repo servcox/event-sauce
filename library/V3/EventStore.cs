@@ -39,7 +39,7 @@ public class EventStore : IDisposable
     private static readonly Byte[] RecordSeparatorBytes = { Convert.ToByte(RecordSeparator) };
 
     private readonly EventTypeResolver _eventTypeResolver = new();
-    private readonly EventStoreConfiguration _configuration = new();
+    private readonly Configurations.EventStoreConfiguration _configuration = new();
     private readonly String _sliceBlobPathPrefix;
     private readonly String _sliceBlobPathPostfix = ".tsv";
     private readonly BlobContainerClient _client;
@@ -48,12 +48,12 @@ public class EventStore : IDisposable
     private Int64 _currentSliceId;
     private Boolean _isDisposed;
 
-    public EventStore(String connectionString, String containerName, String aggregateName, Action<EventStoreConfiguration>? builder = null) : this(new(connectionString, containerName), aggregateName,
+    public EventStore(String connectionString, String containerName, String aggregateName, Action<Configurations.EventStoreConfiguration>? builder = null) : this(new(connectionString, containerName), aggregateName,
         builder)
     {
     }
 
-    public EventStore(BlobContainerClient client, String aggregateName, Action<EventStoreConfiguration>? builder = null)
+    public EventStore(BlobContainerClient client, String aggregateName, Action<Configurations.EventStoreConfiguration>? builder = null)
     {
         if (aggregateName is null || !AggregateNamePattern.IsMatch(aggregateName)) throw new ArgumentException($"Must not be null and match pattern {AggregateNamePattern}", nameof(aggregateName));
         _sliceBlobPathPrefix = $"{aggregateName}/event/{aggregateName}.";

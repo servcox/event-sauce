@@ -20,7 +20,7 @@ public sealed class ProjectionWrapper : IDisposable
     public readonly String AggregateId2 = NewId();
     private readonly String _projectionId;
 
-    public ProjectionWrapper(Action<EventStoreConfiguration>? storeBuilder = null, Action<ProjectionConfiguration<Cake>>? projectionBuilder = null, Boolean prePopulateData = false,
+    public ProjectionWrapper(Action<V3.Configurations.EventStoreConfiguration>? storeBuilder = null, Action<ProjectionConfiguration<Cake>>? projectionBuilder = null, Boolean prePopulateData = false,
         Boolean prePopulateCache = false)
     {
         const String containerName = "unit-tests";

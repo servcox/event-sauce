@@ -1,23 +1,36 @@
+using System.Globalization;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 
 namespace ServcoX.EventSauce;
 
-public sealed class BlobReaderWriter(String aggregateName, BlobContainerClient containerClient)
+public sealed class BlobReaderWriter
 {
     private static readonly BlobHttpHeaders SliceBlobHeaders = new()
     {
         ContentType = "text/tab-separated-values",
     };
 
-    private const String FileExtension = "tsv";
+    private readonly BlobContainerClient _containerClient;
+    private readonly String _prefix;
+
+    public BlobReaderWriter(BlobContainerClient containerClient, String prefix)
+    {
+        _containerClient = containerClient;
+        _containerClient.CreateIfNotExists();
+        _prefix = prefix;
+    }
+
+    private const String PostFix = ".tsv";
+    
+    private const String FileNameDateFormat = "yyyyMMdd";
 
     public async Task Write(DateOnly date, Stream stream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        var blob = containerClient.GetAppendBlobClient(DateToName(date));
+        var blob = _containerClient.GetAppendBlobClient(DateToName(date));
         await blob.CreateIfNotExistsAsync(httpHeaders: SliceBlobHeaders, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         if (stream.Length == 0) return;
@@ -28,14 +41,14 @@ public sealed class BlobReaderWriter(String aggregateName, BlobContainerClient c
 
     public async Task<Stream> Read(DateOnly date, Int64 start, CancellationToken cancellationToken)
     {
-        var blob = containerClient.GetAppendBlobClient(DateToName(date));
+        var blob = _containerClient.GetAppendBlobClient(DateToName(date));
         return await blob.OpenReadAsync(start, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<List<Segment>> List(CancellationToken cancellationToken)
     {
         var output = new List<Segment>();
-        var sliceBlobs = containerClient.GetBlobsAsync(prefix: $"{aggregateName}.", cancellationToken: cancellationToken);
+        var sliceBlobs = _containerClient.GetBlobsAsync(prefix: _prefix, cancellationToken: cancellationToken);
         await foreach (var sliceBlob in sliceBlobs)
         {
             var date = NameToDate(sliceBlob.Name);
@@ -45,23 +58,19 @@ public sealed class BlobReaderWriter(String aggregateName, BlobContainerClient c
             output.Add(new()
             {
                 Date = date,
-                End = end,
+                Length = end,
             });
         }
 
         return output;
     }
 
-    private String DateToName(DateOnly date) => $"{aggregateName}.{date:yyyyMMdd}.{FileExtension}";
+    private String DateToName(DateOnly date) => $"{_prefix}{date.ToString(FileNameDateFormat, CultureInfo.InvariantCulture)}{PostFix}";
 
     private DateOnly NameToDate(String name)
     {
-        var tokens = name.Split('.');
-        if (tokens.Length != 3) throw new ArgumentException("Must contain exactly two periods", nameof(name));
-        if (tokens[0] != aggregateName) throw new ArgumentException($"Must start with aggregateName ('{aggregateName}')", nameof(name));
-        if (tokens[2] != FileExtension) throw new ArgumentException($"Must emd with extension ('{FileExtension}')", nameof(name));
-        
-        var date = DateOnly.ParseExact(tokens[1], "yyyyMMdd");
+        var raw = name.Substring(1 - FileNameDateFormat.Length - PostFix.Length, FileNameDateFormat.Length);
+        var date = DateOnly.ParseExact(raw, FileNameDateFormat);
         return date;
     }
 }
