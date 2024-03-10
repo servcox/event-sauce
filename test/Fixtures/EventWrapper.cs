@@ -7,7 +7,7 @@ public sealed class EventWrapper : IDisposable
 {
     private const String ConnectionString = "UseDevelopmentStorage=true;";
     public BlobContainerClient Container { get; }
-    public EventStore Sut { get; }
+    public V3.EventStore Sut { get; }
     private readonly String _aggregateName;
 
     public const Int32 MaxBlocksPerSlice = 10;

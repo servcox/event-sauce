@@ -6,7 +6,6 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using ServcoX.EventSauce.V3.Configurations;
-using ServcoX.EventSauce.V3.Exceptions;
 using ServcoX.EventSauce.V3.Extensions;
 using ServcoX.EventSauce.V3.Models;
 using Stream = System.IO.Stream;
@@ -85,13 +84,13 @@ public class EventStore : IDisposable
             At = at
         }, cancellationToken);
 
-    public Task WriteEvent(IEvent evt, CancellationToken cancellationToken = default) =>
-        WriteEvents(new List<IEvent> { evt }, cancellationToken);
+    public Task WriteEvent(Models.IEvent evt, CancellationToken cancellationToken = default) =>
+        WriteEvents(new List<Models.IEvent> { evt }, cancellationToken);
 
     public Task WriteEvents(IEnumerable<Event> events, CancellationToken cancellationToken = default) =>
-        WriteEvents(events.Cast<IEvent>(), cancellationToken);
+        WriteEvents(events.Cast<Models.IEvent>(), cancellationToken);
 
-    public async Task WriteEvents(IEnumerable<IEvent> events, CancellationToken cancellationToken = default)
+    public async Task WriteEvents(IEnumerable<Models.IEvent> events, CancellationToken cancellationToken = default)
     {
         if (events is null) throw new ArgumentNullException(nameof(events));
 
@@ -209,7 +208,7 @@ public class EventStore : IDisposable
         throw new NeverException();
     }
 
-    private MemoryStream EncodeEventsAsStream(IEnumerable<IEvent> events)
+    private MemoryStream EncodeEventsAsStream(IEnumerable<Models.IEvent> events)
     {
         var defaultAt = DateTime.UtcNow;
         var stream = new MemoryStream();

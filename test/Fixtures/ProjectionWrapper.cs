@@ -10,7 +10,7 @@ public sealed class ProjectionWrapper : IDisposable
 {
     private const String ConnectionString = "UseDevelopmentStorage=true;";
     public BlobContainerClient Container { get; }
-    public EventStore EventStore { get; }
+    public V3.EventStore EventStore { get; }
     public Projection<Cake> Sut { get; }
     private readonly String _aggregateName;
 
