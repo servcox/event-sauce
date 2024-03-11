@@ -1,9 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
 using FluentAssertions;
-using ServcoX.EventSauce.Tests.Fixtures;
+using ServcoX.EventSauce.Tests.V3.Fixtures;
+using ServcoX.EventSauce.Tests.V3.TestData;
 
-namespace ServcoX.EventSauce.Tests;
+namespace ServcoX.EventSauce.Tests.V3;
 
 public class EventStoreTests
 {
@@ -113,7 +114,7 @@ public class EventStoreTests
         wrapper.AppendLine(0, TestEvents.BEncoded);
         wrapper.AppendLine(0, TestEvents.CEncoded);
 
-        var events = await wrapper.Sut.ReadEvents(0, 108);
+        var events = await wrapper.Sut.ReadEvents(0, 111);
         events.Count.Should().Be(2);
         AssertEvent(events[0], TestEvents.B);
         AssertEvent(events[1], TestEvents.C);
@@ -160,9 +161,9 @@ public class EventStoreTests
         slices = await wrapper.Sut.ListSlices();
         slices.Count.Should().Be(2);
         slices[0].Id.Should().Be(0);
-        slices[0].End.Should().Be(117);
+        slices[0].End.Should().Be(120);
         slices[1].Id.Should().Be(1);
-        slices[1].End.Should().Be(237);
+        slices[1].End.Should().Be(243);
     }
 
     private static void AssertEvent(TextReader reader, String aggregateId, Object payload, Dictionary<String, String> metadata)

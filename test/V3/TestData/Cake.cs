@@ -1,4 +1,4 @@
-namespace ServcoX.EventSauce.Tests.TestData;
+namespace ServcoX.EventSauce.Tests.V3.TestData;
 
 public readonly record struct CakeBaked : IEventPayload;
 

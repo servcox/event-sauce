@@ -1,6 +1,6 @@
 using FluentAssertions;
 
-namespace ServcoX.EventSauce.Tests;
+namespace ServcoX.EventSauce.Tests.V3;
 
 public class EventTypeResolverTests
 {

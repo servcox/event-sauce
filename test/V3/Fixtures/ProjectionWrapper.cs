@@ -1,16 +1,17 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using FluentAssertions;
+using ServcoX.EventSauce.Tests.V3.TestData;
 
 // ReSharper disable MemberCanBePrivate.Global
 
-namespace ServcoX.EventSauce.Tests.Fixtures;
+namespace ServcoX.EventSauce.Tests.V3.Fixtures;
 
 public sealed class ProjectionWrapper : IDisposable
 {
     private const String ConnectionString = "UseDevelopmentStorage=true;";
     public BlobContainerClient Container { get; }
-    public V3.EventStore EventStore { get; }
+    public EventSauce.V3.EventStore EventStore { get; }
     public Projection<Cake> Sut { get; }
     private readonly String _aggregateName;
 
@@ -20,7 +21,7 @@ public sealed class ProjectionWrapper : IDisposable
     public readonly String AggregateId2 = NewId();
     private readonly String _projectionId;
 
-    public ProjectionWrapper(Action<V3.Configurations.EventStoreConfiguration>? storeBuilder = null, Action<ProjectionConfiguration<Cake>>? projectionBuilder = null, Boolean prePopulateData = false,
+    public ProjectionWrapper(Action<EventSauce.V3.Configurations.EventStoreConfiguration>? storeBuilder = null, Action<ProjectionConfiguration<Cake>>? projectionBuilder = null, Boolean prePopulateData = false,
         Boolean prePopulateCache = false)
     {
         const String containerName = "unit-tests";

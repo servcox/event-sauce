@@ -1,5 +1,3 @@
-global using ServcoX.EventSauce.Tests.Extensions;
-global using ServcoX.EventSauce.Tests.TestData;
 global using Xunit;
 global using ServcoX.EventSauce.V3;
 global using ServcoX.EventSauce.V3.Configurations;

@@ -1,7 +1,7 @@
 using System.Text;
 using Azure.Storage.Blobs.Specialized;
 
-namespace ServcoX.EventSauce.Tests.Extensions;
+namespace ServcoX.EventSauce.Tests.V3.Extensions;
 
 public static class AppendBlobClientExtensions
 {

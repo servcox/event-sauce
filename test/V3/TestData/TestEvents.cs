@@ -1,7 +1,4 @@
-using ServcoX.EventSauce.Tests.Fixtures;
-using ServcoX.EventSauce.V3.Models;
-
-namespace ServcoX.EventSauce.Tests.TestData;
+namespace ServcoX.EventSauce.Tests.V3.TestData;
 
 public static class TestEvents
 {

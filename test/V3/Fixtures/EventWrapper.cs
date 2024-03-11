@@ -1,18 +1,19 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
+using ServcoX.EventSauce.Tests.V3.Extensions;
 
-namespace ServcoX.EventSauce.Tests.Fixtures;
+namespace ServcoX.EventSauce.Tests.V3.Fixtures;
 
 public sealed class EventWrapper : IDisposable
 {
     private const String ConnectionString = "UseDevelopmentStorage=true;";
     public BlobContainerClient Container { get; }
-    public V3.EventStore Sut { get; }
+    public EventSauce.V3.EventStore Sut { get; }
     private readonly String _aggregateName;
 
     public const Int32 MaxBlocksPerSlice = 10;
 
-    public EventWrapper(Action<V3.Configurations.EventStoreConfiguration>? builder = null)
+    public EventWrapper(Action<EventSauce.V3.Configurations.EventStoreConfiguration>? builder = null)
     {
         var containerName = "unit-tests";
         Container = new(ConnectionString, containerName);

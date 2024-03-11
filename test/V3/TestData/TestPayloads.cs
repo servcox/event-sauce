@@ -1,7 +1,6 @@
 using System.Text.Json;
-using ServcoX.EventSauce.Tests.Fixtures;
 
-namespace ServcoX.EventSauce.Tests.TestData;
+namespace ServcoX.EventSauce.Tests.V3.TestData;
 
 public static class TestPayloads
 {

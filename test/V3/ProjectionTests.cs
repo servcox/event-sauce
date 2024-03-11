@@ -1,7 +1,8 @@
 using FluentAssertions;
-using ServcoX.EventSauce.Tests.Fixtures;
+using ServcoX.EventSauce.Tests.V3.Fixtures;
+using ServcoX.EventSauce.Tests.V3.TestData;
 
-namespace ServcoX.EventSauce.Tests;
+namespace ServcoX.EventSauce.Tests.V3;
 
 public class ProjectionTests
 {
