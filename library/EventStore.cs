@@ -110,7 +110,6 @@ public sealed class EventStore : IDisposable
 
                 var records = await ReadDay(date, localEnd, cancellationToken).ConfigureAwait(false);
                 EventDispatcher.Dispatch(records, _configuration.SpecificEventHandlers, _configuration.OtherEventHandler, _configuration.AnyEventHandler);
-                
             }
 
             _segmentsLast = segmentsCurrent;
