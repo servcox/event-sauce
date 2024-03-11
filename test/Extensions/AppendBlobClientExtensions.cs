@@ -5,14 +5,6 @@ namespace ServcoX.EventSauce.Tests.Extensions;
 
 public static class AppendBlobClientExtensions
 {
-    public static void AppendBlock(this AppendBlobClient target, Byte[] buffer)
-    {
-        ArgumentNullException.ThrowIfNull(target);
-
-        using var stream = new MemoryStream(buffer);
-         target.AppendBlock(stream);
-    }
-    
     public static void AppendBlock(this AppendBlobClient target, String buffer)
     {
         ArgumentNullException.ThrowIfNull(target);
