@@ -10,7 +10,14 @@ public class EventTypeTests
     public void CanEncode() => new EventType(_type).Name.Should().Be(_type.FullName!.ToUpperInvariant());
 
     [Fact]
-    public void CanDecode() => new EventType(_type.FullName!.ToUpperInvariant()).TryDecode().Should().Be(_type);
+    public void CanDecode()
+    {
+        EventType.Register(_type);
+        new EventType(_type.FullName!.ToUpperInvariant()).TryDecode().Should().Be(_type);
+    }
+
+    [Fact]
+    public void CanDecodeAsNullWhenNotRegistered() => new EventType("bad").TryDecode().Should().BeNull();
 
     private class Test;
 }
