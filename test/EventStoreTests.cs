@@ -1,3 +1,5 @@
+using FluentAssertions;
+
 namespace ServcoX.EventSauce.Tests;
 
 public class EventStoreTests
@@ -45,18 +47,52 @@ public class EventStoreTests
         wrapper.AssertSegment(TestData.AtDate, 0, String.Concat(Enumerable.Repeat(TestData.A1Raw, EventStoreWrapper.TargetWritesPerSegment - 1)) + TestData.A2Raw);
         wrapper.AssertSegment(TestData.AtDate, 1, TestData.BRaw);
     }
-
-
+    
     [Fact]
-    public async Task CanReadAll()
+    public async Task CanRead()
     {
-        throw new NotImplementedException();
+        using var wrapper = new EventStoreWrapper();
+        wrapper.WriteSegment(TestData.AtDate, 0, TestData.A1Raw);
+        wrapper.WriteSegment(TestData.AtDate, 0, TestData.A2Raw);
+        wrapper.WriteSegment(TestData.AtDate, 1, TestData.BRaw);
+        wrapper.WriteSegment(TestData.AtDate.AddDays(1), 0, TestData.A1Raw);
+        wrapper.WriteSegment(TestData.AtDate.AddDays(1), 0, TestData.A2Raw);
+        wrapper.WriteSegment(TestData.AtDate.AddDays(1), 1, TestData.BRaw);
+
+        var expected = new Object[]
+        {
+            TestData.A1,
+            TestData.A2,
+            TestData.B,
+            TestData.A1,
+            TestData.A2,
+            TestData.B,
+        }.Select(a => new Record(TestData.At, new(a.GetType()), a));
+        
+        var actual = await wrapper.Sut.Read();
+        actual.Should().BeEquivalentTo(expected);
     }
 
     [Fact]
     public async Task CanReadSince()
     {
-        throw new NotImplementedException();
+        using var wrapper = new EventStoreWrapper();
+        wrapper.WriteSegment(TestData.AtDate, 0, TestData.A1Raw);
+        wrapper.WriteSegment(TestData.AtDate, 0, TestData.A1Raw);
+        wrapper.WriteSegment(TestData.AtDate, 1, TestData.A1Raw);
+        wrapper.WriteSegment(TestData.AtDate.AddDays(1), 0, TestData.A1Raw);
+        wrapper.WriteSegment(TestData.AtDate.AddDays(1), 0, TestData.A2Raw);
+        wrapper.WriteSegment(TestData.AtDate.AddDays(1), 1, TestData.BRaw);
+
+        var expected = new Object[]
+        {
+            TestData.A1,
+            TestData.A2,
+            TestData.B,
+        }.Select(a => new Record(TestData.At, new(a.GetType()), a));
+        
+        var actual = await wrapper.Sut.Read(TestData.AtDate.AddDays(1));
+        actual.Should().BeEquivalentTo(expected);
     }
 
     [Fact]

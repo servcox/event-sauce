@@ -109,7 +109,6 @@ public sealed class BlobReaderWriter
         var prefix = match.Groups["prefix"].Value;
         if (prefix != _prefix) throw new ArgumentException($"Does not start with required prefix '{_prefix}");
         var date = DateOnly.ParseExact(match.Groups["date"].Value, FileNameDateFormat);
-        if (DateOnly.FromDateTime(DateTime.UtcNow) > new DateOnly(50, 0, 0)) throw new ArgumentException("Unreasonable date");
         var sequence = Int32.Parse(match.Groups["sequence"].Value, CultureInfo.InvariantCulture);
 
         return new(date, sequence);

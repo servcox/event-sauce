@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using FluentAssertions;
@@ -23,6 +24,9 @@ public sealed class EventStoreWrapper : IDisposable
             cfg.UseTargetWritesPerSegment(TargetWritesPerSegment);
             builder?.Invoke(cfg);
         });
+        
+        EventType.Register<TestData.TestEventA>();
+        EventType.Register<TestData.TestEventB>();
     }
 
     public void AssertSegment(DateOnly date, Int32 sequence, String expected)
@@ -31,12 +35,19 @@ public sealed class EventStoreWrapper : IDisposable
         var actual = blob.DownloadContent().Value.Content.ToString();
         actual.Should().Be(expected);
     }
+    
+    public void WriteSegment(DateOnly date, Int32 sequence, String raw)
+    {
+        var blob = GetSegmentBlobClient(date, sequence);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(raw));
+        blob.AppendBlock(stream);
+    }
 
     private AppendBlobClient GetSegmentBlobClient(DateOnly date, Int32 sequence)
     {
-        var client = Container.GetAppendBlobClient($"{Prefix}{date:yyyyMMdd}.{sequence}.tsv");
-        client.CreateIfNotExists();
-        return client;
+        var blob = Container.GetAppendBlobClient($"{Prefix}{date:yyyyMMdd}.{sequence}.tsv");
+        blob.CreateIfNotExists();
+        return blob;
     }
 
     public void Dispose()
@@ -44,4 +55,6 @@ public sealed class EventStoreWrapper : IDisposable
         Container.DeleteIfExists();
         Sut.Dispose();
     }
+
+  
 }
