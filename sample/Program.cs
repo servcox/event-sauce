@@ -5,7 +5,7 @@ const String connectionString = "UseDevelopmentStorage=true;";
 const String containerName = "sample-container";
 
 var store = new EventStore(connectionString, containerName, builder => builder
-        .CheckForNewEventsEvery(TimeSpan.FromSeconds(10))
+        .PollEvery(TimeSpan.FromSeconds(10))
         .OnEvent<CakeIced>((evt, metadata) => Console.WriteLine($"Cake iced '{evt.Color}' at {metadata.At}"))
         .OnEvent<CakeCut>((evt, metadata) => Console.WriteLine($"Cake cut into {evt.Slices} slices at {metadata.At}"))
         .OnOtherEvent((evt, metadata) => Console.WriteLine($"Something else (${metadata.Type}) occured at {metadata.At}")) 
@@ -19,7 +19,7 @@ foreach (var evt in await store.Read())
     Console.WriteLine($"{evt.Type}: {evt.Event}");
 
 
-await store.PollEvents();
+await store.PollNow();
 
 public readonly record struct CakeBaked : IEvent;
 

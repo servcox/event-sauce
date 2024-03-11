@@ -4,7 +4,7 @@ public sealed class EventStoreConfiguration
 {
     internal TimeSpan AutoPollInterval { get; private set; } = TimeSpan.Zero;
 
-    public EventStoreConfiguration CheckForNewEventsEvery(TimeSpan interval)
+    public EventStoreConfiguration PollEvery(TimeSpan interval)
     {
         AutoPollInterval = interval;
         return this;

@@ -43,7 +43,7 @@ public sealed class EventStore : IDisposable
             _syncTimer = new(_configuration.AutoPollInterval);
             _syncTimer.Elapsed += async (_, _) =>
             {
-                await PollEvents().ConfigureAwait(false);
+                await PollNow().ConfigureAwait(false);
                 _syncTimer.Start();
             };
             _syncTimer.AutoReset = false;
@@ -97,7 +97,7 @@ public sealed class EventStore : IDisposable
         return output;
     }
 
-    public async Task PollEvents(CancellationToken cancellationToken = default)
+    public async Task PollNow(CancellationToken cancellationToken = default)
     {
         await _syncLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
