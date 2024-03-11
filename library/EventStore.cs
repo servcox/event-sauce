@@ -17,18 +17,24 @@ public sealed class EventStore : IDisposable
     private List<Segment> _segmentsLast = [];
     private readonly SemaphoreSlim _syncLock = new(1);
 
-    public EventStore(String connectionString, String containerName, String prefix, Action<EventStoreConfiguration>? builder) : this(new(connectionString, containerName), prefix, builder)
+    public EventStore(String connectionString, String containerName, Action<EventStoreConfiguration>? builder = null) :
+        this(new BlobContainerClient(connectionString, containerName), "", builder)
     {
     }
 
-    public EventStore(BlobContainerClient containerClient, String prefix, Action<EventStoreConfiguration>? builder)
+    public EventStore(String connectionString, String containerName, String pathPrefix = "", Action<EventStoreConfiguration>? builder = null) : 
+        this(new BlobContainerClient(connectionString, containerName), pathPrefix, builder)
+    {
+    }
+
+    public EventStore(BlobContainerClient containerClient, String pathPrefix, Action<EventStoreConfiguration>? builder = null)
     {
         ArgumentNullException.ThrowIfNull(containerClient, nameof(containerClient));
-        ArgumentNullException.ThrowIfNull(prefix, nameof(prefix));
+        ArgumentNullException.ThrowIfNull(pathPrefix, nameof(pathPrefix));
 
         builder?.Invoke(_configuration);
 
-        _blobReaderWriter = new(containerClient, prefix);
+        _blobReaderWriter = new(containerClient, pathPrefix);
 
         if (_configuration.AutoPollInterval > TimeSpan.Zero)
         {

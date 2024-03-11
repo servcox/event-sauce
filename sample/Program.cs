@@ -3,9 +3,8 @@
 // An Aggregate has its internal state, which is a projection of a single fine-grained event stream
 const String connectionString = "UseDevelopmentStorage=true;";
 const String containerName = "sample-container";
-const String path = "sample-path";
 
-var store = new EventStore(connectionString, containerName, path, builder => builder
+var store = new EventStore(connectionString, containerName, builder => builder
         .CheckForNewEventsEvery(TimeSpan.FromSeconds(10))
         .OnEvent<CakeIced>((evt, metadata) => Console.WriteLine($"Cake iced '{evt.Color}' at {metadata.At}"))
         .OnEvent<CakeCut>((evt, metadata) => Console.WriteLine($"Cake cut into {evt.Slices} slices at {metadata.At}"))
