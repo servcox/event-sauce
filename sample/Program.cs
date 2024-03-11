@@ -16,11 +16,11 @@ await store.Write(new CakeBaked());
 await store.Write(new CakeIced("BLUE"));
 await store.Write(new CakeCut(3));
 
-foreach (var evt in await store.Read())
+foreach (var evt in await store.ReadAll())
     Console.WriteLine($"{evt.Type}: {evt.Event}");
 
 
-await store.CheckForNewEventsNow();
+await store.PollEvents();
 
 public readonly record struct CakeBaked : IEvent;
 

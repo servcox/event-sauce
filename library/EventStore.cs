@@ -2,6 +2,8 @@ using Azure.Storage.Blobs;
 using Timer = System.Timers.Timer;
 
 // ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnusedMember.Global
+// ReSharper disable UseAwaitUsing
 // ReSharper disable InvertIf
 
 namespace ServcoX.EventSauce;
@@ -28,12 +30,12 @@ public sealed class EventStore : IDisposable
 
         _blobReaderWriter = new(containerClient, prefix);
 
-        if (_configuration.SyncInterval > TimeSpan.Zero)
+        if (_configuration.AutoPollInterval > TimeSpan.Zero)
         {
-            _syncTimer = new(_configuration.SyncInterval);
+            _syncTimer = new(_configuration.AutoPollInterval);
             _syncTimer.Elapsed += async (_, _) =>
             {
-                await CheckForNewEventsNow().ConfigureAwait(false);
+                await PollEvents().ConfigureAwait(false);
                 _syncTimer.Start();
             };
             _syncTimer.AutoReset = false;
@@ -59,9 +61,9 @@ public sealed class EventStore : IDisposable
         await _blobReaderWriter.Write(date, stream, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<List<Record>> Read(CancellationToken cancellationToken = default)
+    public async Task<List<Record>> ReadAll(CancellationToken cancellationToken = default)
     {
-        var slices = await Summarize(cancellationToken).ConfigureAwait(false);
+        var slices = await _blobReaderWriter.List(cancellationToken).ConfigureAwait(false);
         var output = new List<Record>();
         foreach (var slice in slices)
         {
@@ -72,7 +74,7 @@ public sealed class EventStore : IDisposable
         return output;
     }
 
-    public async Task<List<Record>> Read(DateOnly fromDate, CancellationToken cancellationToken = default)
+    public async Task<List<Record>> ReadSince(DateOnly fromDate, CancellationToken cancellationToken = default)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var output = new List<Record>();
@@ -87,22 +89,12 @@ public sealed class EventStore : IDisposable
         return output;
     }
 
-    public async Task<List<Record>> ReadDay(DateOnly date, Int64 start = 0, CancellationToken cancellationToken = default)
-    {
-        using var stream = await _blobReaderWriter.Read(date, start, cancellationToken).ConfigureAwait(false);
-        var events = EventStream.Decode(stream);
-        return events;
-    }
-
-    public async Task<List<Segment>> Summarize(CancellationToken cancellationToken) =>
-        await _blobReaderWriter.List(cancellationToken).ConfigureAwait(false);
-
-    public async Task CheckForNewEventsNow(CancellationToken cancellationToken = default)
+    public async Task PollEvents(CancellationToken cancellationToken = default)
     {
         await _syncLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var segmentsCurrent = await Summarize(cancellationToken).ConfigureAwait(false);
+            var segmentsCurrent = await _blobReaderWriter.List(cancellationToken).ConfigureAwait(false);
             foreach (var (date, end) in segmentsCurrent)
             {
                 var localEnd = _segmentsLast.FirstOrDefault(segment => segment.Date == date).Length;
@@ -118,6 +110,13 @@ public sealed class EventStore : IDisposable
         {
             _syncLock.Release();
         }
+    }
+
+    private async Task<List<Record>> ReadDay(DateOnly date, Int64 start = 0, CancellationToken cancellationToken = default)
+    {
+        using var stream = await _blobReaderWriter.Read(date, start, cancellationToken).ConfigureAwait(false);
+        var events = EventStream.Decode(stream);
+        return events;
     }
 
     public void Dispose()

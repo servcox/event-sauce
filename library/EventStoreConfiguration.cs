@@ -2,11 +2,11 @@ namespace ServcoX.EventSauce;
 
 public sealed class EventStoreConfiguration
 {
-    internal TimeSpan SyncInterval { get; private set; } = TimeSpan.Zero;
+    internal TimeSpan AutoPollInterval { get; private set; } = TimeSpan.Zero;
 
     public EventStoreConfiguration CheckForNewEventsEvery(TimeSpan interval)
     {
-        SyncInterval = interval;
+        AutoPollInterval = interval;
         return this;
     }
 
