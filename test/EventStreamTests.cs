@@ -20,6 +20,7 @@ public class EventStreamTests
     [Fact]
     public void CanEncode()
     {
+        EventType.Register<TestEvents.TestEvent>();
         using var stream = EventStream.Encode(Decoded, At);
         stream.ReadAllAsUtf8().Should().Be(Encoded);
     }
@@ -27,7 +28,9 @@ public class EventStreamTests
     [Fact]
     public void CanDecode()
     {
+        EventType.Register<TestEvents.TestEvent>();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(Encoded));
-        EventStream.Decode(stream).Should().BeEquivalentTo(Decoded);
+        var expected = Decoded.Select(i => new Record(At, new(typeof(ServcoX.EventSauce.Tests.TestEvents.TestEvent)), i)).ToList();
+        EventStream.Decode(stream).Should().BeEquivalentTo(expected);
     }
 }

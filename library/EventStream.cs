@@ -51,8 +51,8 @@ public static class EventStream
     {
         var output = new List<Record>();
 
-        using var reader = new StreamReader(stream, Encoding.UTF8, false, -1024*1024, true);
-        
+        using var reader = new StreamReader(stream, Encoding.UTF8, false, -1, true);
+
         while (reader.ReadLine() is { } line)
         {
             if (line.Length == 0) continue; // Skip blank lines - used in testing
