@@ -5,6 +5,7 @@ public class EventStoreTests
     [Fact]
     public async Task CanWrite()
     {
+      
         throw new NotImplementedException();
     }
 
@@ -17,6 +18,10 @@ public class EventStoreTests
     [Fact]
     public async Task CanWriteNil()
     {
+        using var wrapper = new EventStoreWrapper();
+        await wrapper.Sut.Write([]);
+        // TODO: Check nothing was written
+        
         throw new NotImplementedException();
     }
 
