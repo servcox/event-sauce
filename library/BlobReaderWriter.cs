@@ -1,4 +1,5 @@
 using System.Globalization;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
@@ -25,6 +26,9 @@ public sealed class BlobReaderWriter
     private const String PostFix = ".tsv";
     
     private const String FileNameDateFormat = "yyyyMMdd";
+    
+    private const Int32 FirstRetryDelay = 500;
+    private const Int32 SecondRetryDelay = 1000;
 
     public async Task Write(DateOnly date, Stream stream, CancellationToken cancellationToken)
     {
@@ -36,6 +40,29 @@ public sealed class BlobReaderWriter
         if (stream.Length == 0) return;
         if (stream.Length > blob.AppendBlobMaxAppendBlockBytes)
             throw new TransactionTooLargeException($"Encoded events are {stream.Length} bytes, which exceeds limits of {blob.AppendBlobMaxAppendBlockBytes} bytes. Split events over multiple writes.");
+
+        try
+        {
+            await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        catch (RequestFailedException )
+        {
+        }
+
+        await Task.Delay(FirstRetryDelay, cancellationToken).ConfigureAwait(false);
+        
+        try
+        {
+            await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        catch (RequestFailedException)
+        {
+        }
+
+        await Task.Delay(SecondRetryDelay, cancellationToken).ConfigureAwait(false);
+        
         await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 

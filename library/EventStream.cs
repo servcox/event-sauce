@@ -29,7 +29,7 @@ public static class EventStream
         var stream = new MemoryStream();
         foreach (var evt in events)
         {
-            if (evt is null) throw new BadEventException("One or more events are null");
+            if (evt is null) throw new ArgumentException("One or more events are null", nameof(events));
 
             var formattedAt = at.ToString(DateFormatString, CultureInfo.InvariantCulture);
             var eventType = new EventType(evt.GetType());
@@ -59,7 +59,7 @@ public static class EventStream
             if (line.Length == 0) continue; // Skip blank lines - used in testing
 
             var tokens = line.Split(FieldSeparator);
-            if (tokens.Length != 3) throw new BadEventException("Event does not have exactly three tokens");
+            if (tokens.Length != 3) throw new EventParseException("Event does not have exactly three tokens");
 
             var at = DateTime.ParseExact(tokens[0], DateFormatString, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
             var eventType = new EventType(tokens[1]);

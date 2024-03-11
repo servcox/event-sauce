@@ -214,7 +214,7 @@ public class EventStore : IDisposable
         var stream = new MemoryStream();
         foreach (var evt in events)
         {
-            if (evt.AggregateId.Contains(FieldSeparator) || evt.AggregateId.Contains(RecordSeparator)) throw new BadEventException($"{nameof(Event.AggregateId)} cannot contain \t or \n");
+            if (evt.AggregateId.Contains(FieldSeparator) || evt.AggregateId.Contains(RecordSeparator)) throw new EventParseException($"{nameof(Event.AggregateId)} cannot contain \t or \n");
             stream.WriteAsUtf8(evt.AggregateId);
             stream.Write(FieldSeparatorBytes);
 
@@ -226,7 +226,7 @@ public class EventStore : IDisposable
             stream.WriteAsUtf8(typeName);
             stream.Write(FieldSeparatorBytes);
 
-            if (evt.Payload is null) throw new BadEventException("One or more provided payloads are null");
+            if (evt.Payload is null) throw new EventParseException("One or more provided payloads are null");
             var payloadEncoded =
                 JsonSerializer.Serialize((Object)evt.Payload, SerializationOptions); // Must be cast as object, otherwise STJ will only serialize what it sees on IEventPayload (ie, no fields)
             stream.WriteAsUtf8(payloadEncoded);
