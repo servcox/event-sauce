@@ -72,12 +72,13 @@ public sealed class EventStore : IDisposable
         {
             try
             {
-                await _blobReaderWriter.WriteStream(date, segment, stream, cancellationToken).ConfigureAwait(false);
+                await _blobReaderWriter.WriteStream(date, segment, stream, _configuration.TargetWritesPerSegment, cancellationToken).ConfigureAwait(false);
                 break;
             }
-            catch (SegmentFullException)
+            catch (TargetWritesExceededException)
             {
                 _currentSegment[date] = ++segment;
+                stream.Rewind();
             }
         }
     }

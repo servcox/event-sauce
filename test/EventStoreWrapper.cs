@@ -9,7 +9,7 @@ public sealed class EventStoreWrapper : IDisposable
 {
     private const String ConnectionString = "UseDevelopmentStorage=true;";
     private const String Prefix = "TEST";
-
+    public const Int32 TargetWritesPerSegment = 10;
 
     public BlobContainerClient Container { get; }
     public EventStore Sut { get; }
@@ -18,19 +18,20 @@ public sealed class EventStoreWrapper : IDisposable
     {
         var containerName = $"unittest-{DateTime.Now:yyyyMMddHHmmss}";
         Container = new(ConnectionString, containerName);
-        Sut = new(Container, Prefix, cfg => { builder?.Invoke(cfg); });
+        Sut = new(Container, Prefix, cfg =>
+        {
+            cfg.UseTargetWritesPerSegment(TargetWritesPerSegment);
+            builder?.Invoke(cfg);
+        });
     }
 
     public void WriteEmptyRecords(DateOnly date, Int32 sequence, Int32 count)
     {
         var blob = GetSegmentBlobClient(date, sequence);
-        Int64 done = 0;
-        var stopwatch = Stopwatch.StartNew();
         Parallel.For(0, count, i =>
         {
             using var stream = new MemoryStream("\n"u8.ToArray());
             blob.AppendBlock(stream);
-            if (Interlocked.Increment(ref done) % 1000 == 0) Console.WriteLine($"Done {done} of {count} ({Math.Round((Double)done / count * 100)}%) in {stopwatch.Elapsed}ms");
         });
     }
 

@@ -2,8 +2,6 @@ namespace ServcoX.EventSauce.Tests;
 
 public class EventStoreTests
 {
-    private const Int32 AzureBlockLimit = 50_000;
-
     [Fact]
     public async Task CanWrite()
     {
@@ -37,14 +35,14 @@ public class EventStoreTests
     }
 
     [Fact]
-    public async Task CanWriteOverflowSLOW()
+    public async Task CanWriteOverflow() 
     {
         using var wrapper = new EventStoreWrapper();
-        wrapper.WriteEmptyRecords(TestData.AtDate, 0, AzureBlockLimit - 1);
+        wrapper.WriteEmptyRecords(TestData.AtDate, 0, EventStoreWrapper.TargetWritesPerSegment - 1);
         await wrapper.Sut.Write(TestData.A1, TestData.At);
         await wrapper.Sut.Write(TestData.A2, TestData.At);
         await wrapper.Sut.Write(TestData.B, TestData.At);
-        wrapper.AssertSegment(TestData.AtDate, 0, new String('\n', AzureBlockLimit - 1) + TestData.A1Raw);
+        wrapper.AssertSegment(TestData.AtDate, 0, new String('\n', EventStoreWrapper.TargetWritesPerSegment - 1) + TestData.A1Raw);
         wrapper.AssertSegment(TestData.AtDate, 1, TestData.A2Raw + TestData.BRaw);
     }
 

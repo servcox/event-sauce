@@ -30,24 +30,21 @@ public sealed class BlobReaderWriter
 
     private static readonly Regex NamePattern = new(@"^(?<prefix>.*)(?<date>\d{8}).(?<sequence>\d+)\.tsv$");
 
-    public async Task WriteStream(DateOnly date, Int32 sequence, Stream stream, CancellationToken cancellationToken)
+    public async Task WriteStream(DateOnly date, Int32 sequence, Stream stream, Int32 targetWritesPerSegment, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stream);
 
         if (stream.Length == 0) return; // When attempting to write 0 events
         var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
         await blob.CreateIfNotExistsAsync(httpHeaders: SliceBlobHeaders, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        var properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false); // TODO: Don't get properties on _every_ write. Some overage is ok
+        if (properties.Value.BlobCommittedBlockCount >= targetWritesPerSegment) throw new TargetWritesExceededException();
+
         if (stream.Length > blob.AppendBlobMaxAppendBlockBytes)
             throw new TransactionTooLargeException($"Encoded events are {stream.Length} bytes, which exceeds limits of {blob.AppendBlobMaxAppendBlockBytes} bytes. Split events over multiple writes.");
 
-        try
-        {
-            await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-        catch (RequestFailedException ex) when (ex.ErrorCode == "BlockCountExceedsLimit")
-        {
-            throw new SegmentFullException("Segment has reached Azure 50,000 write limit");
-        }
+        await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Stream> ReadStream(DateOnly date, Int32 sequence, Int64 fromOffset, CancellationToken cancellationToken)
