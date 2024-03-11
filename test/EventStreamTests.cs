@@ -3,7 +3,7 @@ using FluentAssertions;
 
 namespace ServcoX.EventSauce.Tests;
 
-public class EventStreamTests
+public sealed class EventStreamTests
 {
     private static readonly DateTime At = new(2000, 1, 1);
 

@@ -10,7 +10,7 @@ public sealed class EventStoreConfiguration
         return this;
     }
 
-    internal readonly Dictionary<Type, GenericAction> EventHandlers = [];
+    internal readonly Dictionary<Type, GenericAction> SpecificEventHandlers = [];
 
     public EventStoreConfiguration OnEvent<TEvent>(Action<TEvent, IMetadata> action)
     {
@@ -18,27 +18,27 @@ public sealed class EventStoreConfiguration
 
         var type = typeof(TEvent);
         EventType.Register(type);
-        EventHandlers[type] = new(action);
+        SpecificEventHandlers[type] = new(action);
         return this;
     }
 
-    internal GenericAction OtherEventHandler { get; private set; } = new(new Action<Object, IMetadata>((_, _) => { }));
+    internal Action<Object, IMetadata> OtherEventHandler { get; private set; } = (_, _) => { };
 
     public EventStoreConfiguration OnOtherEvent(Action<Object, IMetadata> action)
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        OtherEventHandler = new(action);
+        OtherEventHandler = action;
         return this;
     }
 
-    internal GenericAction AnyEventHandler { get; private set; } = new(new Action<Object, IMetadata>((_, _) => { }));
+    internal Action<Object, IMetadata> AnyEventHandler { get; private set; } = (_, _) => { };
 
     public EventStoreConfiguration OnAnyEvent(Action<Object, IMetadata> action)
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        AnyEventHandler = new(action);
+        AnyEventHandler = action;
         return this;
     }
 }

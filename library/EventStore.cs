@@ -109,22 +109,8 @@ public sealed class EventStore : IDisposable
                 if (localEnd >= end) continue;
 
                 var records = await ReadDay(date, localEnd, cancellationToken).ConfigureAwait(false);
-
-                foreach (var record in records)
-                {
-                    var type = record.Type.TryDecode();
-
-                    if (type is not null && _configuration.EventHandlers.TryGetValue(type, out var handlers))
-                    {
-                        handlers.Invoke(record.Event, record);
-                    }
-                    else
-                    {
-                        _configuration.OtherEventHandler.Invoke(record.Event, record);
-                    }
-
-                    _configuration.AnyEventHandler.Invoke(record.Event, record);
-                }
+                EventDispatcher.Dispatch(records, _configuration.SpecificEventHandlers, _configuration.OtherEventHandler, _configuration.AnyEventHandler);
+                
             }
 
             _segmentsLast = segmentsCurrent;

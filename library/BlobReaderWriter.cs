@@ -96,6 +96,7 @@ public sealed class BlobReaderWriter
 
     private DateOnly NameToDate(String name)
     {
+        if (!name.StartsWith(_prefix, StringComparison.InvariantCulture)) throw new ArgumentException($"Does not start with required prefix '{_prefix}");
         var raw = name.Substring(1 - FileNameDateFormat.Length - PostFix.Length, FileNameDateFormat.Length);
         var date = DateOnly.ParseExact(raw, FileNameDateFormat);
         return date;

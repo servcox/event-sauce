@@ -2,7 +2,7 @@ using FluentAssertions;
 
 namespace ServcoX.EventSauce.Tests;
 
-public class GenericActionTests
+public sealed class GenericActionTests
 {
     [Fact]
     public void CanInvoke()

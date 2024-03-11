@@ -2,7 +2,7 @@ using FluentAssertions;
 
 namespace ServcoX.EventSauce.Tests;
 
-public class EventTypeTests
+public sealed class EventTypeTests
 {
     private readonly Type _type = typeof(Test);
 
