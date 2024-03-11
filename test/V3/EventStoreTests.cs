@@ -84,40 +84,40 @@ public class EventStoreTests
     public async Task CanRead()
     {
         using var wrapper = new EventWrapper();
-        wrapper.AppendLine(0, TestEvents.AEncoded);
+        wrapper.AppendLine(0, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.AEncoded);
 
         var events = await wrapper.Sut.ReadEvents(0);
         events.Count.Should().Be(1);
-        AssertEvent(events[0], TestEvents.A);
+        AssertEvent(events[0], ServcoX.EventSauce.Tests.V3.TestData.TestEvents.A);
     }
 
     [Fact]
     public async Task CanReadMultiples()
     {
         using var wrapper = new EventWrapper();
-        wrapper.AppendLine(0, TestEvents.AEncoded);
-        wrapper.AppendLine(0, TestEvents.BEncoded);
-        wrapper.AppendLine(0, TestEvents.CEncoded);
+        wrapper.AppendLine(0, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.AEncoded);
+        wrapper.AppendLine(0, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.BEncoded);
+        wrapper.AppendLine(0, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.CEncoded);
 
         var events = await wrapper.Sut.ReadEvents(0);
         events.Count.Should().Be(3);
-        AssertEvent(events[0], TestEvents.A);
-        AssertEvent(events[1], TestEvents.B);
-        AssertEvent(events[2], TestEvents.C);
+        AssertEvent(events[0], ServcoX.EventSauce.Tests.V3.TestData.TestEvents.A);
+        AssertEvent(events[1], ServcoX.EventSauce.Tests.V3.TestData.TestEvents.B);
+        AssertEvent(events[2], ServcoX.EventSauce.Tests.V3.TestData.TestEvents.C);
     }
 
     [Fact]
     public async Task CanReadWithOffset()
     {
         using var wrapper = new EventWrapper();
-        wrapper.AppendLine(0, TestEvents.AEncoded);
-        wrapper.AppendLine(0, TestEvents.BEncoded);
-        wrapper.AppendLine(0, TestEvents.CEncoded);
+        wrapper.AppendLine(0, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.AEncoded);
+        wrapper.AppendLine(0, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.BEncoded);
+        wrapper.AppendLine(0, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.CEncoded);
 
         var events = await wrapper.Sut.ReadEvents(0, 111);
         events.Count.Should().Be(2);
-        AssertEvent(events[0], TestEvents.B);
-        AssertEvent(events[1], TestEvents.C);
+        AssertEvent(events[0], ServcoX.EventSauce.Tests.V3.TestData.TestEvents.B);
+        AssertEvent(events[1], ServcoX.EventSauce.Tests.V3.TestData.TestEvents.C);
     }
 
     [Fact]
@@ -126,18 +126,18 @@ public class EventStoreTests
         using var wrapper = new EventWrapper();
         wrapper.PrepareForOverlappingWrite();
 
-        wrapper.AppendLine(0, TestEvents.AEncoded);
-        wrapper.AppendLine(1, TestEvents.BEncoded);
-        wrapper.AppendLine(1, TestEvents.CEncoded);
+        wrapper.AppendLine(0, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.AEncoded);
+        wrapper.AppendLine(1, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.BEncoded);
+        wrapper.AppendLine(1, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.CEncoded);
 
         var events = await wrapper.Sut.ReadEvents(0);
         events.Count.Should().Be(1);
-        AssertEvent(events[0], TestEvents.A);
+        AssertEvent(events[0], ServcoX.EventSauce.Tests.V3.TestData.TestEvents.A);
 
         events = await wrapper.Sut.ReadEvents(1);
         events.Count.Should().Be(2);
-        AssertEvent(events[0], TestEvents.B);
-        AssertEvent(events[1], TestEvents.C);
+        AssertEvent(events[0], ServcoX.EventSauce.Tests.V3.TestData.TestEvents.B);
+        AssertEvent(events[1], ServcoX.EventSauce.Tests.V3.TestData.TestEvents.C);
     }
 
     [Fact]
@@ -154,9 +154,9 @@ public class EventStoreTests
         slices[0].Id.Should().Be(0);
         slices[0].End.Should().Be(9);
 
-        wrapper.AppendLine(0, TestEvents.AEncoded);
-        wrapper.AppendLine(1, TestEvents.BEncoded);
-        wrapper.AppendLine(1, TestEvents.CEncoded);
+        wrapper.AppendLine(0, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.AEncoded);
+        wrapper.AppendLine(1, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.BEncoded);
+        wrapper.AppendLine(1, ServcoX.EventSauce.Tests.V3.TestData.TestEvents.CEncoded);
 
         slices = await wrapper.Sut.ListSlices();
         slices.Count.Should().Be(2);

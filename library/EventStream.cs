@@ -40,7 +40,6 @@ public static class EventStream
             stream.WriteAsUtf8(eventType.Name);
             stream.Write(FieldSeparatorBytes);
             stream.WriteAsUtf8(payloadEncoded);
-            stream.Write(FieldSeparatorBytes);
             stream.Write(RecordSeparatorBytes);
         }
 
