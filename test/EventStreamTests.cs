@@ -5,32 +5,23 @@ namespace ServcoX.EventSauce.Tests;
 
 public sealed class EventStreamTests
 {
-    private static readonly DateTime At = new(2000, 1, 1);
-
-    private static readonly IEvent[] Decoded =
-    [
-        TestEvents.A1,
-        TestEvents.A2
-    ];
-
-    private static readonly String Encoded =
-        "20000101T000000\tSERVCOX.EVENTSAUCE.TESTS.TESTEVENTS+TESTEVENT\t{\"A\":\"a1\"}\n" +
-        "20000101T000000\tSERVCOX.EVENTSAUCE.TESTS.TESTEVENTS+TESTEVENT\t{\"A\":\"a2\"}\n";
+    private static readonly IEvent[] Decoded = [TestData.A1, TestData.A2, TestData.B];
+    private static readonly String Encoded = TestData.A1Raw + TestData.A2Raw + TestData.BRaw;
 
     [Fact]
     public void CanEncode()
     {
-        EventType.Register<TestEvents.TestEvent>();
-        using var stream = EventStream.Encode(Decoded, At);
+        EventType.Register<TestData.TestEventA>();
+        using var stream = EventStream.Encode(Decoded, TestData.At);
         stream.ReadAllAsUtf8().Should().Be(Encoded);
     }
 
     [Fact]
     public void CanDecode()
     {
-        EventType.Register<TestEvents.TestEvent>();
+        EventType.Register<TestData.TestEventA>();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(Encoded));
-        var expected = Decoded.Select(i => new Record(At, new(typeof(ServcoX.EventSauce.Tests.TestEvents.TestEvent)), i)).ToList();
+        var expected = Decoded.Select(i => new Record(TestData.At, new(i.GetType()), i)).ToList();
         EventStream.Decode(stream).Should().BeEquivalentTo(expected);
     }
 }

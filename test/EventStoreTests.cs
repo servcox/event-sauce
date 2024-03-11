@@ -5,8 +5,11 @@ public class EventStoreTests
     [Fact]
     public async Task CanWrite()
     {
-      
-        throw new NotImplementedException();
+        using var wrapper = new EventStoreWrapper();
+        await wrapper.Sut.Write(TestData.A1, TestData.At);
+        await wrapper.Sut.Write(TestData.A2, TestData.At);
+        await wrapper.Sut.Write(TestData.B, TestData.At);
+        wrapper.AssertSegment(DateOnly.FromDateTime(TestData.At), 0, TestData.A1Raw + TestData.A2Raw + TestData.BRaw);
     }
 
     [Fact]
@@ -14,7 +17,7 @@ public class EventStoreTests
     {
         throw new NotImplementedException();
     }
-    
+
     [Fact]
     public async Task CanWriteOverflow()
     {
@@ -27,7 +30,7 @@ public class EventStoreTests
         using var wrapper = new EventStoreWrapper();
         await wrapper.Sut.Write([]);
         // TODO: Check nothing was written
-        
+
         throw new NotImplementedException();
     }
 
