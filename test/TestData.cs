@@ -3,6 +3,7 @@ namespace ServcoX.EventSauce.Tests;
 public static class TestData
 {
     public  static readonly DateTime At = new(2000, 1, 1);
+    public  static readonly DateOnly AtDate = DateOnly.FromDateTime(At);
     
     public static readonly TestEventA A1 = new() { A = "a1" };
     public static readonly TestEventA A2 = new() { A = "a2" };
