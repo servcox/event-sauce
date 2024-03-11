@@ -15,7 +15,7 @@ await store.Write(new CakeBaked());
 await store.Write(new CakeIced("BLUE"));
 await store.Write(new CakeCut(3));
 
-foreach (var evt in await store.ReadAll())
+foreach (var evt in await store.Read())
     Console.WriteLine($"{evt.Type}: {evt.Event}");
 
 

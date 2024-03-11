@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Azure.Storage.Blobs;
 using Timer = System.Timers.Timer;
 
@@ -13,16 +14,17 @@ public sealed class EventStore : IDisposable
     private readonly EventStoreConfiguration _configuration = new();
     private readonly BlobReaderWriter _blobReaderWriter;
     private readonly Timer? _syncTimer;
-    private Boolean _isDisposed;
-    private List<Segment> _segmentsLast = [];
     private readonly SemaphoreSlim _syncLock = new(1);
+    private readonly ConcurrentDictionary<DateOnly, Int32> _currentSegment = new();
+    private Boolean _isDisposed;
+    private List<Segment> _localSegmentLength = [];
 
     public EventStore(String connectionString, String containerName, Action<EventStoreConfiguration>? builder = null) :
         this(new BlobContainerClient(connectionString, containerName), "", builder)
     {
     }
 
-    public EventStore(String connectionString, String containerName, String pathPrefix = "", Action<EventStoreConfiguration>? builder = null) : 
+    public EventStore(String connectionString, String containerName, String pathPrefix = "", Action<EventStoreConfiguration>? builder = null) :
         this(new BlobContainerClient(connectionString, containerName), pathPrefix, builder)
     {
     }
@@ -64,32 +66,32 @@ public sealed class EventStore : IDisposable
 
         using var stream = EventStream.Encode(events, at);
         var date = DateOnly.FromDateTime(at);
-        await _blobReaderWriter.Write(date, stream, cancellationToken).ConfigureAwait(false);
-    }
+        _currentSegment.TryGetValue(date, out var segment);
 
-    public async Task<List<Record>> ReadAll(CancellationToken cancellationToken = default)
+        while (true)
+        {
+            try
+            {
+                await _blobReaderWriter.WriteStream(date, segment, stream, cancellationToken).ConfigureAwait(false);
+                break;
+            }
+            catch (SegmentFullException)
+            {
+                _currentSegment[date] = ++segment;
+            }
+        }
+    }
+    
+    public async Task<List<Record>> Read(DateOnly? fromDate = null, CancellationToken cancellationToken = default)
     {
-        var slices = await _blobReaderWriter.List(cancellationToken).ConfigureAwait(false);
+        var slices = await _blobReaderWriter.ListSegments(cancellationToken).ConfigureAwait(false);
+        if (fromDate is not null) slices = slices.Where(slice => slice.Date >= fromDate).ToList();
+
         var output = new List<Record>();
         foreach (var slice in slices)
         {
-            var events = await ReadDay(slice.Date, 0, cancellationToken).ConfigureAwait(false);
+            var events = await ReadSegment(slice.Date, slice.Sequence, 0, cancellationToken).ConfigureAwait(false);
             output.AddRange(events);
-        }
-
-        return output;
-    }
-
-    public async Task<List<Record>> ReadSince(DateOnly fromDate, CancellationToken cancellationToken = default)
-    {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var output = new List<Record>();
-        var date = fromDate;
-        while (date <= today)
-        {
-            var events = await ReadDay(date, 0, cancellationToken).ConfigureAwait(false);
-            output.AddRange(events);
-            date = date.AddDays(1);
         }
 
         return output;
@@ -100,17 +102,17 @@ public sealed class EventStore : IDisposable
         await _syncLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var segmentsCurrent = await _blobReaderWriter.List(cancellationToken).ConfigureAwait(false);
-            foreach (var (date, end) in segmentsCurrent)
+            var segmentsCurrent = await _blobReaderWriter.ListSegments(cancellationToken).ConfigureAwait(false);
+            foreach (var (date, sequence, remoteLength) in segmentsCurrent)
             {
-                var localEnd = _segmentsLast.FirstOrDefault(segment => segment.Date == date).Length;
-                if (localEnd >= end) continue;
+                var localLength = _localSegmentLength.FirstOrDefault(segment => segment.Date == date).Length;
+                if (localLength >= remoteLength) continue;
 
-                var records = await ReadDay(date, localEnd, cancellationToken).ConfigureAwait(false);
+                var records = await ReadSegment(date, sequence, localLength, cancellationToken).ConfigureAwait(false);
                 EventDispatcher.Dispatch(records, _configuration.SpecificEventHandlers, _configuration.OtherEventHandler, _configuration.AnyEventHandler);
             }
 
-            _segmentsLast = segmentsCurrent;
+            _localSegmentLength = segmentsCurrent;
         }
         finally
         {
@@ -118,9 +120,9 @@ public sealed class EventStore : IDisposable
         }
     }
 
-    private async Task<List<Record>> ReadDay(DateOnly date, Int64 start = 0, CancellationToken cancellationToken = default)
+    private async Task<List<Record>> ReadSegment(DateOnly date, Int32 sequence, Int64 offset = 0, CancellationToken cancellationToken = default)
     {
-        using var stream = await _blobReaderWriter.Read(date, start, cancellationToken).ConfigureAwait(false);
+        using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
         var events = EventStream.Decode(stream);
         return events;
     }

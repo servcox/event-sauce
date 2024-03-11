@@ -14,6 +14,12 @@ public class EventStoreTests
     {
         throw new NotImplementedException();
     }
+    
+    [Fact]
+    public async Task CanWriteOverflow()
+    {
+        throw new NotImplementedException();
+    }
 
     [Fact]
     public async Task CanWriteNil()

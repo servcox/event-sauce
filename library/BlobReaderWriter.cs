@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -23,82 +24,97 @@ public sealed class BlobReaderWriter
         _prefix = prefix;
     }
 
-    private const String PostFix = ".tsv";
-    
     private const String FileNameDateFormat = "yyyyMMdd";
-    
-    private const Int32 FirstRetryDelay = 500;
-    private const Int32 SecondRetryDelay = 1000;
 
-    public async Task Write(DateOnly date, Stream stream, CancellationToken cancellationToken)
+    // Blob name: {prefix}{date:yyyyMMdd}.{sequence}.tsv
+
+    private static readonly Regex NamePattern = new(@"^(?<prefix>.*)(?<date>\d{8}).(?<sequence>\d+)\.tsv$");
+
+    public async Task WriteStream(DateOnly date, Int32 sequence, Stream stream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        var blob = _containerClient.GetAppendBlobClient(DateToName(date));
+        if (stream.Length == 0) return; // When attempting to write 0 events
+        var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
         await blob.CreateIfNotExistsAsync(httpHeaders: SliceBlobHeaders, cancellationToken: cancellationToken).ConfigureAwait(false);
-
-        if (stream.Length == 0) return;
         if (stream.Length > blob.AppendBlobMaxAppendBlockBytes)
             throw new TransactionTooLargeException($"Encoded events are {stream.Length} bytes, which exceeds limits of {blob.AppendBlobMaxAppendBlockBytes} bytes. Split events over multiple writes.");
 
         try
         {
             await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
-            return;
         }
-        catch (RequestFailedException )
+        catch (RequestFailedException ex) when (ex.ErrorCode == "BlockCountExceedsLimit")
         {
+            throw new SegmentFullException("Segment has reached Azure 50,000 write limit");
         }
+    }
 
-        await Task.Delay(FirstRetryDelay, cancellationToken).ConfigureAwait(false);
-        
+    public async Task<Stream> ReadStream(DateOnly date, Int32 sequence, Int64 fromOffset, CancellationToken cancellationToken)
+    {
         try
         {
-            await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
-            return;
+            var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
+            return await blob.OpenReadAsync(fromOffset, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
-        catch (RequestFailedException)
+        catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
         {
         }
 
-        await Task.Delay(SecondRetryDelay, cancellationToken).ConfigureAwait(false);
-        
-        await blob.AppendBlockAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
+            return await blob.OpenReadAsync(fromOffset, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
+        {
+        }
+
+        await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+
+        {
+            var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
+            return await blob.OpenReadAsync(fromOffset, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
     }
 
-    public async Task<Stream> Read(DateOnly date, Int64 start, CancellationToken cancellationToken)
-    {
-        var blob = _containerClient.GetAppendBlobClient(DateToName(date));
-        return await blob.OpenReadAsync(start, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task<List<Segment>> List(CancellationToken cancellationToken)
+    public async Task<List<Segment>> ListSegments(CancellationToken cancellationToken)
     {
         var output = new List<Segment>();
         var sliceBlobs = _containerClient.GetBlobsAsync(prefix: _prefix, cancellationToken: cancellationToken);
         await foreach (var sliceBlob in sliceBlobs)
         {
-            var date = NameToDate(sliceBlob.Name);
+            var (date, sequence) = DecodeSegmentName(sliceBlob.Name);
 
             var end = sliceBlob.Properties.ContentLength ?? 0;
 
             output.Add(new()
             {
                 Date = date,
+                Sequence = sequence,
                 Length = end,
             });
         }
 
-        return output;
+        return output
+            .OrderBy(segment => segment.Date)
+            .ThenBy(segment => segment.Sequence)
+            .ToList();
     }
 
-    private String DateToName(DateOnly date) => $"{_prefix}{date.ToString(FileNameDateFormat, CultureInfo.InvariantCulture)}{PostFix}";
+    private String EncodeSegmentName(DateOnly date, Int32 sequence) => $"{_prefix}{date.ToString(FileNameDateFormat, CultureInfo.InvariantCulture)}.{sequence}.tsv";
 
-    private DateOnly NameToDate(String name)
+    private (DateOnly Date, Int32 Sequence) DecodeSegmentName(String name)
     {
-        if (!name.StartsWith(_prefix, StringComparison.InvariantCulture)) throw new ArgumentException($"Does not start with required prefix '{_prefix}");
-        var raw = name.Substring(1 - FileNameDateFormat.Length - PostFix.Length, FileNameDateFormat.Length);
-        var date = DateOnly.ParseExact(raw, FileNameDateFormat);
-        return date;
+        var match = NamePattern.Match(name);
+        var prefix = match.Groups["prefix"].Value;
+        if (prefix != _prefix) throw new ArgumentException($"Does not start with required prefix '{_prefix}");
+        var date = DateOnly.ParseExact(match.Groups["date"].Value, FileNameDateFormat);
+        if (DateOnly.FromDateTime(DateTime.UtcNow) > new DateOnly(50, 0, 0)) throw new ArgumentException("Unreasonable date");
+        var sequence = Int32.Parse(match.Groups["sequence"].Value, CultureInfo.InvariantCulture);
+
+        return new(date, sequence);
     }
 }
