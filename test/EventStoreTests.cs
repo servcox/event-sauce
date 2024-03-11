@@ -35,15 +35,15 @@ public class EventStoreTests
     }
 
     [Fact]
-    public async Task CanWriteOverflow() 
+    public async Task CanWriteOverflow()
     {
         using var wrapper = new EventStoreWrapper();
-        wrapper.WriteEmptyRecords(TestData.AtDate, 0, EventStoreWrapper.TargetWritesPerSegment - 1);
-        await wrapper.Sut.Write(TestData.A1, TestData.At);
+        for (var i = 0; i < EventStoreWrapper.TargetWritesPerSegment - 1; i++) await wrapper.Sut.Write(TestData.A1, TestData.At);
         await wrapper.Sut.Write(TestData.A2, TestData.At);
         await wrapper.Sut.Write(TestData.B, TestData.At);
-        wrapper.AssertSegment(TestData.AtDate, 0, new String('\n', EventStoreWrapper.TargetWritesPerSegment - 1) + TestData.A1Raw);
-        wrapper.AssertSegment(TestData.AtDate, 1, TestData.A2Raw + TestData.BRaw);
+
+        wrapper.AssertSegment(TestData.AtDate, 0, String.Concat(Enumerable.Repeat(TestData.A1Raw, EventStoreWrapper.TargetWritesPerSegment - 1)) + TestData.A2Raw);
+        wrapper.AssertSegment(TestData.AtDate, 1, TestData.BRaw);
     }
 
 

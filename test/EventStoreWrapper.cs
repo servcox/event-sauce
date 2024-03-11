@@ -25,16 +25,6 @@ public sealed class EventStoreWrapper : IDisposable
         });
     }
 
-    public void WriteEmptyRecords(DateOnly date, Int32 sequence, Int32 count)
-    {
-        var blob = GetSegmentBlobClient(date, sequence);
-        Parallel.For(0, count, i =>
-        {
-            using var stream = new MemoryStream("\n"u8.ToArray());
-            blob.AppendBlock(stream);
-        });
-    }
-
     public void AssertSegment(DateOnly date, Int32 sequence, String expected)
     {
         var blob = GetSegmentBlobClient(date, sequence);

@@ -55,8 +55,7 @@ public static class EventStream
 
         while (reader.ReadLine() is { } line)
         {
-            if (line.Length == 0) continue; // Skip blank lines - used in testing
-
+            if (line.Length == 0) continue;
             var tokens = line.Split(FieldSeparator);
             if (tokens.Length != 3) throw new EventParseException("Event does not have exactly three tokens");
 
