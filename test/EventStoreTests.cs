@@ -42,5 +42,5 @@ public class EventStoreTests
     public async Task CanManuallyPollEvents()
     {
         throw new NotImplementedException();
-    }\
+    }
 }
