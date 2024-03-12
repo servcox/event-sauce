@@ -34,8 +34,7 @@ var createdBy = Guid.NewGuid().ToString("N");
 var containerName = $"test{Guid.NewGuid():N}";
 var container = new BlobContainerClient(v3ConnectionString, containerName);
 await container.CreateIfNotExistsAsync();
-var v3Store = new ServcoX.EventSauce.V3.EventStore(container, aggregateName, cfg => cfg
-    .DoNotSyncBeforeReads());
+var v3Store = new ServcoX.EventSauce.V3.EventStore(container, aggregateName);
 var v3Projection = v3Store.Project<Cake>(version: 1, cfg => cfg
     .OnCreation((projection, id) => projection.Id = id)
     .OnEvent<CakeBaked>((_, _, _) => { })
