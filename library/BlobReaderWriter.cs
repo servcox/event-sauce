@@ -48,7 +48,7 @@ public sealed class BlobReaderWriter
     }
 
     public async Task<Stream> ReadStream(DateOnly date, Int32 sequence, Int64 fromOffset, CancellationToken cancellationToken)
-    {
+    { // TODO: More mature back-off approach
         try
         {
             var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
