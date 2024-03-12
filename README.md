@@ -63,7 +63,7 @@ target. You can use those events to populate your projection in a database like 
 
 Note that you can change the poll interval to control your consistency.
 
-You can also trigger a manual poll to immediately trigger the callbacks for any events that hadn't yet been recieved:
+You can also trigger a manual poll to immediately trigger the callbacks for any events that hadn't yet been received:
 
 ```c#
 await store.PollNow();
