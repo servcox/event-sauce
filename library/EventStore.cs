@@ -24,7 +24,7 @@ public sealed class EventStore : IDisposable
     {
     }
 
-    public EventStore(String connectionString, String containerName, String pathPrefix = "", Action<EventStoreConfiguration>? builder = null) :
+    public EventStore(String connectionString, String containerName, String pathPrefix, Action<EventStoreConfiguration>? builder = null) :
         this(new BlobContainerClient(connectionString, containerName), pathPrefix, builder)
     {
     }
@@ -82,7 +82,7 @@ public sealed class EventStore : IDisposable
             }
         }
     }
-    
+
     public async Task<List<Record>> Read(DateOnly? fromDate = null, CancellationToken cancellationToken = default)
     {
         var slices = await _blobReaderWriter.ListSegments(cancellationToken).ConfigureAwait(false);
