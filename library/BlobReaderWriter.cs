@@ -83,14 +83,14 @@ public sealed class BlobReaderWriter
         var sliceBlobs = _containerClient.GetBlobsAsync(prefix: _prefix, cancellationToken: cancellationToken);
         await foreach (var sliceBlob in sliceBlobs)
         {
-            var (date, sequence) = DecodeSegmentName(sliceBlob.Name);
-
+            var segmentName = DecodeSegmentName(sliceBlob.Name);
+            if (segmentName is null) continue;
             var end = sliceBlob.Properties.ContentLength ?? 0;
 
             output.Add(new()
             {
-                Date = date,
-                Sequence = sequence,
+                Date = segmentName.Value.Date,
+                Sequence = segmentName.Value.Sequence,
                 Length = end,
             });
         }
@@ -103,9 +103,10 @@ public sealed class BlobReaderWriter
 
     private String EncodeSegmentName(DateOnly date, Int32 sequence) => $"{_prefix}{date.ToString(FileNameDateFormat, CultureInfo.InvariantCulture)}.{sequence.ToPaddedString()}.tsv";
 
-    private (DateOnly Date, Int32 Sequence) DecodeSegmentName(String name)
+    private (DateOnly Date, Int32 Sequence)? DecodeSegmentName(String name)
     {
         var match = NamePattern.Match(name);
+        if (!match.Success) return null;
         var prefix = match.Groups["prefix"].Value;
         if (prefix != _prefix) throw new ArgumentException($"Does not start with required prefix '{_prefix}");
         var date = DateOnly.ParseExact(match.Groups["date"].Value, FileNameDateFormat);
