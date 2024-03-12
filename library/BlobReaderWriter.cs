@@ -28,7 +28,7 @@ public sealed class BlobReaderWriter
 
     // Blob name: {prefix}{date:yyyyMMdd}.{sequence}.tsv
 
-    private static readonly Regex NamePattern = new(@"^(?<prefix>.*)(?<date>\d{8}).(?<sequence>\d{10})\.tsv$");
+    private static readonly Regex NamePattern = new(@"^(?<prefix>.*)(?<date>\d{8})\.(?<sequence>\d{10})\.tsv$");
 
     public async Task WriteStream(DateOnly date, Int32 sequence, Stream stream, Int32 targetWritesPerSegment, CancellationToken cancellationToken)
     {
