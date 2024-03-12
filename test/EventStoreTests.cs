@@ -98,12 +98,75 @@ public class EventStoreTests
     [Fact]
     public async Task CanAutoPollEvents()
     {
-        throw new NotImplementedException();
+        var eventACount = 0;
+        var eventBCount = 0;
+        var anyEventCount = 0;
+        using var wrapper = new EventStoreWrapper(cfg => cfg
+            .PollEvery(TimeSpan.FromSeconds(1)) // <== NOTE
+            .OnEvent<TestData.TestEventA>((evt,metadata) =>
+            {
+                evt.A.Should().BeOneOf(TestData.A1.A, TestData.A2.A);
+                metadata.At.Should().Be(TestData.At);
+                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventA));
+                eventACount++;
+            })
+            .OnOtherEvent((evt, metadata) =>
+            {
+                evt.Should().BeEquivalentTo(TestData.B);
+                metadata.At.Should().Be(TestData.At);
+                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventB));
+                eventBCount++;
+            })
+            .OnAnyEvent((evt, metadata) =>
+            {
+                metadata.At.Should().Be(TestData.At);
+                anyEventCount++;
+            })
+        );
+        await wrapper.Sut.Write(TestData.A1, TestData.At);
+        await wrapper.Sut.Write(TestData.A2, TestData.At);
+        await wrapper.Sut.Write(TestData.B, TestData.At);
+        await Task.Delay(1000);
+        
+        eventACount.Should().Be(2);
+        eventBCount.Should().Be(1);
+        anyEventCount.Should().Be(3);
     }
 
     [Fact]
     public async Task CanManuallyPollEvents()
     {
-        throw new NotImplementedException();
+        var eventACount = 0;
+        var eventBCount = 0;
+        var anyEventCount = 0;
+        using var wrapper = new EventStoreWrapper(cfg => cfg
+            .OnEvent<TestData.TestEventA>((evt,metadata) =>
+            {
+                evt.A.Should().BeOneOf(TestData.A1.A, TestData.A2.A);
+                metadata.At.Should().Be(TestData.At);
+                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventA));
+                eventACount++;
+            })
+            .OnOtherEvent((evt, metadata) =>
+            {
+                evt.Should().BeEquivalentTo(TestData.B);
+                metadata.At.Should().Be(TestData.At);
+                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventB));
+                eventBCount++;
+            })
+            .OnAnyEvent((evt, metadata) =>
+            {
+                metadata.At.Should().Be(TestData.At);
+                anyEventCount++;
+            })
+        );
+        await wrapper.Sut.Write(TestData.A1, TestData.At);
+        await wrapper.Sut.Write(TestData.A2, TestData.At);
+        await wrapper.Sut.Write(TestData.B, TestData.At);
+        await wrapper.Sut.PollNow();
+        
+        eventACount.Should().Be(2);
+        eventBCount.Should().Be(1);
+        anyEventCount.Should().Be(3);
     }
 }
