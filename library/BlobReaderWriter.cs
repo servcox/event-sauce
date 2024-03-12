@@ -28,7 +28,7 @@ public sealed class BlobReaderWriter
 
     // Blob name: {prefix}{date:yyyyMMdd}.{sequence}.tsv
 
-    private static readonly Regex NamePattern = new(@"^(?<prefix>.*)(?<date>\d{8}).(?<sequence>\d+)\.tsv$");
+    private static readonly Regex NamePattern = new(@"^(?<prefix>.*)(?<date>\d{8}).(?<sequence>\d{10})\.tsv$");
 
     public async Task WriteStream(DateOnly date, Int32 sequence, Stream stream, Int32 targetWritesPerSegment, CancellationToken cancellationToken)
     {
@@ -101,7 +101,7 @@ public sealed class BlobReaderWriter
             .ToList();
     }
 
-    private String EncodeSegmentName(DateOnly date, Int32 sequence) => $"{_prefix}{date.ToString(FileNameDateFormat, CultureInfo.InvariantCulture)}.{sequence}.tsv";
+    private String EncodeSegmentName(DateOnly date, Int32 sequence) => $"{_prefix}{date.ToString(FileNameDateFormat, CultureInfo.InvariantCulture)}.{sequence.ToPaddedString()}.tsv";
 
     private (DateOnly Date, Int32 Sequence) DecodeSegmentName(String name)
     {

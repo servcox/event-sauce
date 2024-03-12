@@ -9,7 +9,7 @@ namespace ServcoX.EventSauce.Tests;
 public sealed class EventStoreWrapper : IDisposable
 {
     private const String ConnectionString = "UseDevelopmentStorage=true;";
-    private const String Prefix = "TEST";
+    private const String Prefix = "TEST.";
     public const Int32 TargetWritesPerSegment = 10;
 
     public BlobContainerClient Container { get; }
@@ -45,7 +45,7 @@ public sealed class EventStoreWrapper : IDisposable
 
     private AppendBlobClient GetSegmentBlobClient(DateOnly date, Int32 sequence)
     {
-        var blob = Container.GetAppendBlobClient($"{Prefix}{date:yyyyMMdd}.{sequence}.tsv");
+        var blob = Container.GetAppendBlobClient($"{Prefix}{date:yyyyMMdd}.{sequence.ToPaddedString()}.tsv");
         blob.CreateIfNotExists();
         return blob;
     }

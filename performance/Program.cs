@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
-using ServcoX.EventSauce.V3;
+using ServcoX.EventSauce;
 
 const String v3ConnectionString = "UseDevelopmentStorage=true;";
 const String v2ConnectionString = "UseDevelopmentStorage=true;";
@@ -34,7 +34,7 @@ var createdBy = Guid.NewGuid().ToString("N");
 var containerName = $"test{Guid.NewGuid():N}";
 var container = new BlobContainerClient(v3ConnectionString, containerName);
 await container.CreateIfNotExistsAsync();
-var v3Store = new EventStore(container, aggregateName, cfg => cfg
+var v3Store = new ServcoX.EventSauce.V3.EventStore(container, aggregateName, cfg => cfg
     .DoNotSyncBeforeReads());
 var v3Projection = v3Store.Project<Cake>(version: 1, cfg => cfg
     .OnCreation((projection, id) => projection.Id = id)
@@ -45,6 +45,7 @@ var v3Projection = v3Store.Project<Cake>(version: 1, cfg => cfg
     .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.At)
     .IndexField(nameof(Cake.Color))
 );
+var v4Store = new ServcoX.EventSauce.EventStore(container, aggregateName);
 
 
 var postfix = Guid.NewGuid().ToString("N");
@@ -103,6 +104,47 @@ do
 
 Console.WriteLine("V3 write+reads/sec: " + (Single)v3WriteReads / allowedTime.TotalSeconds);
 
+// V4 Writes
+var v4Writes = 0;
+var v4WriteStopwatch = Stopwatch.StartNew();
+do
+{
+    await v4Store.Write(new CakeBaked());
+    v4Writes++;
+} while (v4WriteStopwatch.Elapsed < allowedTime);
+
+Console.WriteLine("V4 writes/sec: " + (Single)v4Writes / allowedTime.TotalSeconds);
+
+// V4 Reads
+await v4Store.Write(new CakeBaked());
+await v4Store.Write(new CakeIced("BLUE"));
+await v4Store.Write(new CakeCut(3));
+await v4Store.PollNow();
+var v4Reads = 0;
+var v4ReadStopwatch = Stopwatch.StartNew();
+do
+{
+    await v4Store.Read();
+    v4Reads++;
+} while (v4ReadStopwatch.Elapsed < allowedTime);
+
+Console.WriteLine("V3 reads/sec: " + (Single)v4Reads / allowedTime.TotalSeconds);
+
+// V4 Write+Reads
+var v4WriteReads = 0;
+var v4WriteReadStopwatch = Stopwatch.StartNew();
+do
+{
+    await v4Store.Write(new CakeBaked());
+    await v4Store.Write(new CakeIced("BLUE"));
+    await v4Store.Write(new CakeCut(3));
+    await v4Store.PollNow();
+    await v4Store.Read();
+    v4WriteReads++;
+} while (v4WriteReadStopwatch.Elapsed < allowedTime);
+
+Console.WriteLine("V4 write+reads/sec: " + (Single)v4WriteReads / allowedTime.TotalSeconds);
+
 container.DeleteIfExists();
 
 streamTable.Delete();
@@ -117,8 +159,8 @@ public record Cake
     public DateTime LastUpdatedAt { get; set; }
 }
 
-public readonly record struct CakeBaked : IEventPayload;
+public readonly record struct CakeBaked : ServcoX.EventSauce.V3.IEventPayload, IEvent;
 
-public readonly record struct CakeIced(String Color) : IEventPayload;
+public readonly record struct CakeIced(String Color) : ServcoX.EventSauce.V3.IEventPayload, IEvent;
 
-public readonly record struct CakeCut(Int32 Slices) : IEventPayload;
+public readonly record struct CakeCut(Int32 Slices) : ServcoX.EventSauce.V3.IEventPayload, IEvent;
