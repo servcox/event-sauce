@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Azure;
 using Azure.Storage.Blobs;
 using Timer = System.Timers.Timer;
 
@@ -122,10 +123,36 @@ public sealed class EventStore : IDisposable
     }
 
     private async Task<List<Record>> ReadSegment(DateOnly date, Int32 sequence, Int64 offset = 0, CancellationToken cancellationToken = default)
-    {
-        using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
-        var events = EventStream.Decode(stream);
-        return events;
+    { // TODO: More mature retry
+        try
+        {
+            using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
+            var events = EventStream.Decode(stream);
+            return events;
+        }
+        catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
+        {
+        }
+
+        await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+        
+        try
+        {
+            using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
+            var events = EventStream.Decode(stream);
+            return events;
+        }
+        catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
+        {
+        }
+
+        await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+
+        {
+            using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
+            var events = EventStream.Decode(stream);
+            return events;
+        }
     }
 
     public void Dispose()

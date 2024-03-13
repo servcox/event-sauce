@@ -48,33 +48,9 @@ public sealed class BlobReaderWriter
     }
 
     public async Task<Stream> ReadStream(DateOnly date, Int32 sequence, Int64 fromOffset, CancellationToken cancellationToken)
-    { // TODO: More mature back-off approach
-        try
-        {
-            var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
-            return await blob.OpenReadAsync(fromOffset, cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-        catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
-        {
-        }
-
-        await Task.Delay(100, cancellationToken).ConfigureAwait(false);
-
-        try
-        {
-            var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
-            return await blob.OpenReadAsync(fromOffset, cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-        catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
-        {
-        }
-
-        await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
-
-        {
-            var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
-            return await blob.OpenReadAsync(fromOffset, cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
+    {
+        var blob = _containerClient.GetAppendBlobClient(EncodeSegmentName(date, sequence));
+        return await blob.OpenReadAsync(fromOffset, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<List<Segment>> ListSegments(CancellationToken cancellationToken)
