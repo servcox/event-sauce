@@ -140,8 +140,8 @@ public sealed class EventStore : IDisposable
         try
         {
             using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
-            var records = EventStream.Decode(stream);
-            return new(offset + stream.Length, records);
+            var (length, records) = EventStream.Decode(stream);
+            return new(offset + length, records);
         }
         catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
         {
@@ -152,8 +152,8 @@ public sealed class EventStore : IDisposable
         try
         {
             using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
-            var records = EventStream.Decode(stream);
-            return new(offset + stream.Length, records);
+            var (length, records) = EventStream.Decode(stream);
+            return new(offset + length, records);
         }
         catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
         {
@@ -163,8 +163,8 @@ public sealed class EventStore : IDisposable
 
         {
             using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
-            var records = EventStream.Decode(stream);
-            return new(offset + stream.Length, records);
+            var (length, records) = EventStream.Decode(stream);
+            return new(offset + length, records);
         }
     }
 

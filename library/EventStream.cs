@@ -47,15 +47,20 @@ public static class EventStream
         return stream;
     }
 
-    public static List<Record> Decode(Stream stream)
+    public static (Int64 Length, List<Record> Records) Decode(Stream stream)
     {
-        var output = new List<Record>();
+        var length = 0; // The data could contain a partial record on the end, so we need to calculate what we're actually used here
+        var records = new List<Record>();
 
+        // TODO: Opportunity to do smarter handling here by _not_ loading everything into RAM in one go
         using var reader = new StreamReader(stream, Encoding.UTF8, false, -1, true);
+        var raw = reader.ReadToEnd();
+        var lines = raw.Split(RecordSeparator);
 
-        while (reader.ReadLine() is { } line)
+        for (var i = 0; i < lines.Length - 1; i++) // We do not want to process the last line. By contention, it's either incomplete or empty
         {
-            if (line.Length == 0) continue;
+            var line = lines[i];
+            length += line.Length + 1;
             var tokens = line.Split(FieldSeparator);
             if (tokens.Length != 3) throw new EventParseException("Event does not have exactly three tokens");
 
@@ -64,7 +69,7 @@ public static class EventStream
             var deserializationType = eventType.TryDecode() ?? typeof(Object);
             var evt = JsonSerializer.Deserialize(tokens[2], deserializationType, SerializationOptions) ?? throw new NeverException();
 
-            output.Add(new
+            records.Add(new
             (
                 at,
                 eventType,
@@ -72,6 +77,6 @@ public static class EventStream
             ));
         }
 
-        return output;
+        return new(length, records);
     }
 }

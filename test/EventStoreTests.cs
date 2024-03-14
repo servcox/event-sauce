@@ -72,6 +72,17 @@ public class EventStoreTests
         var actual = await wrapper.Sut.Read();
         actual.Should().BeEquivalentTo(expected);
     }
+    
+    [Fact]
+    public async Task CanReadWithPartial()
+    {
+        using var wrapper = new EventStoreWrapper();
+        wrapper.WriteSegment(TestData.AtDate, 0, TestData.A1Raw);
+        wrapper.WriteSegment(TestData.AtDate, 0, $"{TestData.At:yyyyMMdd\\THHmmssK}TEST."); // <== This is a incomplete event that doesn't end with a newline
+
+        var actual = await wrapper.Sut.Read();
+        actual.Should().BeEquivalentTo(new []{new Record(TestData.At, new(TestData.A1.GetType()), TestData.A1)});
+    }
 
     [Fact]
     public async Task CanReadSince()
