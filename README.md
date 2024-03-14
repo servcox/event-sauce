@@ -1,6 +1,6 @@
 # ServcoX.EventSauce
 So you want to do event sourcing in your project? Great, does your project meet the following requirements?
-* Low load (less than <50 writes/sec)
+* Low load (less than 10 writes/sec average)
 * .NET 7 or newer
 * Using Azure cloud
 
