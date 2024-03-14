@@ -39,7 +39,7 @@ public sealed class BlobReaderWriter
         await blob.CreateIfNotExistsAsync(httpHeaders: SliceBlobHeaders, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         var properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false); // TODO: Don't get properties on _every_ write. Some overage is ok
-        if (properties.Value.BlobCommittedBlockCount >= targetWritesPerSegment) throw new TargetWritesExceededException();
+        if (properties.Value.BlobCommittedBlockCount >= targetWritesPerSegment) throw new TargetWritesExceededException(); // TODO: Don't use exceptions in normal flow
 
         if (stream.Length > blob.AppendBlobMaxAppendBlockBytes)
             throw new TransactionTooLargeException($"Encoded events are {stream.Length} bytes, which exceeds limits of {blob.AppendBlobMaxAppendBlockBytes} bytes. Split events over multiple writes.");

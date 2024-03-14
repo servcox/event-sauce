@@ -18,7 +18,7 @@ public sealed class EventStore : IDisposable
     private readonly SemaphoreSlim _syncLock = new(1);
     private readonly ConcurrentDictionary<DateOnly, Int32> _currentSegment = new();
     private Boolean _isDisposed;
-    private List<Segment> _localSegmentLength = [];
+    private List<Segment> _lastSegments = [];
 
     public EventStore(String connectionString, String containerName, Action<EventStoreConfiguration>? builder = null) :
         this(new BlobContainerClient(connectionString, containerName), "", builder)
@@ -40,7 +40,7 @@ public sealed class EventStore : IDisposable
         _blobReaderWriter = new(containerClient, pathPrefix);
 
         PollNow().Wait();
-        
+
         if (_configuration.AutoPollInterval > TimeSpan.Zero)
         {
             _syncTimer = new(_configuration.AutoPollInterval);
@@ -106,26 +106,27 @@ public sealed class EventStore : IDisposable
         await _syncLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var segmentsCurrent = await _blobReaderWriter.ListSegments(cancellationToken).ConfigureAwait(false);
-            foreach (var (date, sequence, remoteLength) in segmentsCurrent)
+            var segments = await _blobReaderWriter.ListSegments(cancellationToken).ConfigureAwait(false);
+            foreach (var (date, sequence, length) in segments)
             {
-                var localLength = _localSegmentLength.FirstOrDefault(segment => segment.Date == date).Length;
-                if (localLength >= remoteLength) continue;
+                var lastLength = _lastSegments.SingleOrDefault(segment => segment.Date == date && segment.Sequence == sequence).Length;
+                if (lastLength >= length) continue;
 
-                var records = await ReadSegment(date, sequence, localLength, cancellationToken).ConfigureAwait(false);
+                var records = await ReadSegment(date, sequence, lastLength, cancellationToken).ConfigureAwait(false);
                 EventDispatcher.Dispatch(records, _configuration.SpecificEventHandlers, _configuration.OtherEventHandler, _configuration.AnyEventHandler);
             }
 
-            _localSegmentLength = segmentsCurrent;
+            _lastSegments = segments;
         }
         finally
         {
-            _syncLock.Release();
+            if (!_isDisposed) _syncLock.Release();
         }
     }
 
     private async Task<List<Record>> ReadSegment(DateOnly date, Int32 sequence, Int64 offset = 0, CancellationToken cancellationToken = default)
-    { // TODO: More mature retry
+    {
+        // TODO: More mature retry
         try
         {
             using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
@@ -137,7 +138,7 @@ public sealed class EventStore : IDisposable
         }
 
         await Task.Delay(100, cancellationToken).ConfigureAwait(false);
-        
+
         try
         {
             using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
