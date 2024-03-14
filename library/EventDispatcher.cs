@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace ServcoX.EventSauce;
 
 public static class EventDispatcher
@@ -8,21 +10,47 @@ public static class EventDispatcher
         ArgumentNullException.ThrowIfNull(specificEventHandlers, nameof(specificEventHandlers));
         ArgumentNullException.ThrowIfNull(otherEventHandler, nameof(otherEventHandler));
         ArgumentNullException.ThrowIfNull(anyEventHandler, nameof(anyEventHandler));
-        
+
         foreach (var record in records)
         {
             var type = record.Type.TryDecode();
 
+#pragma warning disable CA1031 // Allow catching Exception
             if (type is not null && specificEventHandlers.TryGetValue(type, out var specificEventHandler))
             {
-                specificEventHandler.Invoke(record.Event, record);
+                try
+                {
+                    specificEventHandler.Invoke(record.Event, record);
+                }
+                catch (Exception ex)
+                {
+                    Trace.WriteLine(ex);
+                    Console.Error.WriteLine(ex);
+                }
             }
             else
             {
-                otherEventHandler.Invoke(record.Event, record);
+                try
+                {
+                    otherEventHandler.Invoke(record.Event, record);
+                }
+                catch (Exception ex)
+                {
+                    Trace.WriteLine(ex);
+                    Console.Error.WriteLine(ex);
+                }
             }
 
-            anyEventHandler.Invoke(record.Event, record);
+            try
+            {
+                anyEventHandler.Invoke(record.Event, record);
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine(ex);
+                Console.Error.WriteLine(ex);
+            }
+#pragma warning restore CA1031
         }
     }
 }
