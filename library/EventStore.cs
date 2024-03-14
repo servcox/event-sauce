@@ -16,9 +16,9 @@ public sealed class EventStore : IDisposable
     private readonly BlobReaderWriter _blobReaderWriter;
     private readonly Timer? _syncTimer;
     private readonly SemaphoreSlim _syncLock = new(1);
-    private readonly ConcurrentDictionary<DateOnly, Int32> _currentSegment = new();
+    private readonly ConcurrentDictionary<DateOnly, Int32> _currentSegmentSequence = new();
     private Boolean _isDisposed;
-    private List<Segment> _lastSegments = [];
+    private ConcurrentDictionary<DateOnly, ConcurrentDictionary<Int32, Int64>> _lastSegmentPositions = [];
 
     public EventStore(String connectionString, String containerName, Action<EventStoreConfiguration>? builder = null) :
         this(new BlobContainerClient(connectionString, containerName), "", builder)
@@ -69,7 +69,7 @@ public sealed class EventStore : IDisposable
 
         using var stream = EventStream.Encode(events, at);
         var date = DateOnly.FromDateTime(at);
-        _currentSegment.TryGetValue(date, out var segment);
+        _currentSegmentSequence.TryGetValue(date, out var segment);
 
         while (true)
         {
@@ -80,7 +80,7 @@ public sealed class EventStore : IDisposable
             }
             catch (TargetWritesExceededException)
             {
-                _currentSegment[date] = ++segment;
+                _currentSegmentSequence[date] = ++segment;
                 stream.Rewind();
             }
         }
@@ -94,8 +94,8 @@ public sealed class EventStore : IDisposable
         var output = new List<Record>();
         foreach (var slice in slices)
         {
-            var events = await ReadSegment(slice.Date, slice.Sequence, 0, cancellationToken).ConfigureAwait(false);
-            output.AddRange(events);
+            var (_, records) = await ReadSegment(slice.Date, slice.Sequence, 0, cancellationToken).ConfigureAwait(false);
+            output.AddRange(records);
         }
 
         return output;
@@ -107,16 +107,26 @@ public sealed class EventStore : IDisposable
         try
         {
             var segments = await _blobReaderWriter.ListSegments(cancellationToken).ConfigureAwait(false);
-            foreach (var (date, sequence, length) in segments)
+
+            foreach (var (date, sequence, fileLength) in segments)
             {
-                var lastLength = _lastSegments.SingleOrDefault(segment => segment.Date == date && segment.Sequence == sequence).Length;
-                if (lastLength >= length) continue;
+                Int64 lastLength = 0;
+                if (_lastSegmentPositions.TryGetValue(date, out var lastSegmentInnerPositions))
+                {
+                    lastSegmentInnerPositions.TryGetValue(sequence, out lastLength);
+                }
+                else
+                {
+                    _lastSegmentPositions[date] = lastSegmentInnerPositions = [];
+                }
 
-                var records = await ReadSegment(date, sequence, lastLength, cancellationToken).ConfigureAwait(false);
+                if (lastLength >= fileLength) continue;
+
+                var (actualLength, records) = await ReadSegment(date, sequence, lastLength, cancellationToken).ConfigureAwait(false);
                 EventDispatcher.Dispatch(records, _configuration.SpecificEventHandlers, _configuration.OtherEventHandler, _configuration.AnyEventHandler);
-            }
 
-            _lastSegments = segments;
+                lastSegmentInnerPositions[sequence] = actualLength; // Note that actual length may be longer than file length due to concurrency
+            }
         }
         finally
         {
@@ -124,14 +134,14 @@ public sealed class EventStore : IDisposable
         }
     }
 
-    private async Task<List<Record>> ReadSegment(DateOnly date, Int32 sequence, Int64 offset = 0, CancellationToken cancellationToken = default)
+    private async Task<(Int64 Length, List<Record> Records)> ReadSegment(DateOnly date, Int32 sequence, Int64 offset = 0, CancellationToken cancellationToken = default)
     {
         // TODO: More mature retry
         try
         {
             using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
-            var events = EventStream.Decode(stream);
-            return events;
+            var records = EventStream.Decode(stream);
+            return new(offset + stream.Length, records);
         }
         catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
         {
@@ -142,8 +152,8 @@ public sealed class EventStore : IDisposable
         try
         {
             using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
-            var events = EventStream.Decode(stream);
-            return events;
+            var records = EventStream.Decode(stream);
+            return new(offset + stream.Length, records);
         }
         catch (RequestFailedException ex) when (ex.ErrorCode == "ConditionNotMet")
         {
@@ -153,8 +163,8 @@ public sealed class EventStore : IDisposable
 
         {
             using var stream = await _blobReaderWriter.ReadStream(date, sequence, offset, cancellationToken).ConfigureAwait(false);
-            var events = EventStream.Decode(stream);
-            return events;
+            var records = EventStream.Decode(stream);
+            return new(offset + stream.Length, records);
         }
     }
 

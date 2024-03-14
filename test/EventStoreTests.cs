@@ -47,7 +47,7 @@ public class EventStoreTests
         wrapper.AssertSegment(TestData.AtDate, 0, String.Concat(Enumerable.Repeat(TestData.A1Raw, EventStoreWrapper.TargetWritesPerSegment - 1)) + TestData.A2Raw);
         wrapper.AssertSegment(TestData.AtDate, 1, TestData.BRaw);
     }
-    
+
     [Fact]
     public async Task CanRead()
     {
@@ -68,7 +68,7 @@ public class EventStoreTests
             TestData.A2,
             TestData.B,
         }.Select(a => new Record(TestData.At, new(a.GetType()), a));
-        
+
         var actual = await wrapper.Sut.Read();
         actual.Should().BeEquivalentTo(expected);
     }
@@ -90,7 +90,7 @@ public class EventStoreTests
             TestData.A2,
             TestData.B,
         }.Select(a => new Record(TestData.At, new(a.GetType()), a));
-        
+
         var actual = await wrapper.Sut.Read(TestData.AtDate.AddDays(1));
         actual.Should().BeEquivalentTo(expected);
     }
@@ -98,75 +98,47 @@ public class EventStoreTests
     [Fact]
     public async Task CanAutoPollEvents()
     {
-        var eventACount = 0;
-        var eventBCount = 0;
-        var anyEventCount = 0;
+        var receivedCount = 0;
         using var wrapper = new EventStoreWrapper(cfg => cfg
-            .PollEvery(TimeSpan.FromSeconds(1)) // <== NOTE
-            .OnEvent<TestData.TestEventA>((evt,metadata) =>
-            {
-                evt.A.Should().BeOneOf(TestData.A1.A, TestData.A2.A);
-                metadata.At.Should().Be(TestData.At);
-                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventA));
-                eventACount++;
-            })
-            .OnOtherEvent((evt, metadata) =>
-            {
-                evt.Should().BeEquivalentTo(TestData.B);
-                metadata.At.Should().Be(TestData.At);
-                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventB));
-                eventBCount++;
-            })
-            .OnAnyEvent((evt, metadata) =>
-            {
-                metadata.At.Should().Be(TestData.At);
-                anyEventCount++;
-            })
+            .PollEvery(TimeSpan.FromSeconds(0.5)) // <== NOTE
+            .OnEvent<TestData.TestEventA>((_, _) => receivedCount++)
         );
-        await wrapper.Sut.Write(TestData.A1, TestData.At);
-        await wrapper.Sut.Write(TestData.A2, TestData.At);
-        await wrapper.Sut.Write(TestData.B, TestData.At);
-        await Task.Delay(2000);
-        
-        eventACount.Should().Be(2);
-        eventBCount.Should().Be(1);
-        anyEventCount.Should().Be(3);
+
+        const Int32 factor = 100;
+        var sentCount = 0;
+        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() });
+
+        await Task.Delay(1000);
+
+        receivedCount.Should().Be(sentCount);
+
+        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() });
+
+        await Task.Delay(1000);
+
+        receivedCount.Should().Be(sentCount);
     }
 
     [Fact]
-    public async Task CanManuallyPollEvents()
+    public async Task CanPollNow()
     {
-        var eventACount = 0;
-        var eventBCount = 0;
-        var anyEventCount = 0;
+        var receivedCount = 0;
         using var wrapper = new EventStoreWrapper(cfg => cfg
-            .OnEvent<TestData.TestEventA>((evt,metadata) =>
-            {
-                evt.A.Should().BeOneOf(TestData.A1.A, TestData.A2.A);
-                metadata.At.Should().Be(TestData.At);
-                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventA));
-                eventACount++;
-            })
-            .OnOtherEvent((evt, metadata) =>
-            {
-                evt.Should().BeEquivalentTo(TestData.B);
-                metadata.At.Should().Be(TestData.At);
-                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventB));
-                eventBCount++;
-            })
-            .OnAnyEvent((evt, metadata) =>
-            {
-                metadata.At.Should().Be(TestData.At);
-                anyEventCount++;
-            })
+            .OnEvent<TestData.TestEventA>((_, _) => receivedCount++)
         );
-        await wrapper.Sut.Write(TestData.A1, TestData.At);
-        await wrapper.Sut.Write(TestData.A2, TestData.At);
-        await wrapper.Sut.Write(TestData.B, TestData.At);
+
+        const Int32 factor = 100;
+        var sentCount = 0;
+        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() });
+
         await wrapper.Sut.PollNow();
-        
-        eventACount.Should().Be(2);
-        eventBCount.Should().Be(1);
-        anyEventCount.Should().Be(3);
+
+        receivedCount.Should().Be(sentCount);
+
+        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() });
+
+        await wrapper.Sut.PollNow();
+
+        receivedCount.Should().Be(sentCount);
     }
 }

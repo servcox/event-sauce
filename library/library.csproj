@@ -23,7 +23,7 @@
         <AnalysisMode>All</AnalysisMode>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <LangVersion>12</LangVersion>
-        <Version>4.0.2</Version>
+        <Version>4.0.3</Version>
         <TargetFrameworks>net7.0;net8.0</TargetFrameworks>
     </PropertyGroup>
 
