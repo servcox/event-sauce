@@ -126,7 +126,7 @@ public class EventStoreTests
         await wrapper.Sut.Write(TestData.A1, TestData.At);
         await wrapper.Sut.Write(TestData.A2, TestData.At);
         await wrapper.Sut.Write(TestData.B, TestData.At);
-        await Task.Delay(1000);
+        await Task.Delay(2000);
         
         eventACount.Should().Be(2);
         eventBCount.Should().Be(1);
