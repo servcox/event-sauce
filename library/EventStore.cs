@@ -39,6 +39,8 @@ public sealed class EventStore : IDisposable
 
         _blobReaderWriter = new(containerClient, pathPrefix);
 
+        PollNow().Wait();
+        
         if (_configuration.AutoPollInterval > TimeSpan.Zero)
         {
             _syncTimer = new(_configuration.AutoPollInterval);
