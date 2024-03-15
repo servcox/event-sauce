@@ -127,7 +127,7 @@ do
     v4Reads++;
 } while (v4ReadStopwatch.Elapsed < allowedTime);
 
-Console.WriteLine("V3 reads/sec: " + (Single)v4Reads / allowedTime.TotalSeconds);
+Console.WriteLine("V4 reads/sec: " + (Single)v4Reads / allowedTime.TotalSeconds);
 
 // V4 Write+Reads
 var v4WriteReads = 0;
