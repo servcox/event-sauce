@@ -1,10 +1,8 @@
 ﻿using System.Diagnostics;
-using Azure.Data.Tables;
 using Azure.Storage.Blobs;
 using ServcoX.EventSauce;
 
 const String v3ConnectionString = "UseDevelopmentStorage=true;";
-const String v2ConnectionString = "UseDevelopmentStorage=true;";
 const String aggregateName = "CAKE";
 
 /* Local emulated:
@@ -44,22 +42,7 @@ var v3Projection = v3Store.Project<Cake>(version: 1, cfg => cfg
     .OnAnyEvent((projection, evt) => projection.LastUpdatedAt = evt.At)
     .IndexField(nameof(Cake.Color))
 );
-var v4Store = new ServcoX.EventSauce.EventStore(container, aggregateName);
-
-
-var postfix = Guid.NewGuid().ToString("N");
-var streamTableName = $"stream{postfix}";
-var eventTableName = $"event{postfix}";
-var projectionTableName = $"projection{postfix}";
-
-var streamTable = new TableClient(v2ConnectionString, streamTableName);
-streamTable.Create();
-
-var eventTable = new TableClient(v2ConnectionString, eventTableName);
-eventTable.Create();
-
-var projectionTable = new TableClient(v2ConnectionString, projectionTableName);
-projectionTable.Create();
+var v4Store = new EventStore(container, aggregateName);
 
 // V3 Writes
 var v3Writes = 0;
@@ -145,10 +128,6 @@ do
 Console.WriteLine("V4 write+reads/sec: " + (Single)v4WriteReads / allowedTime.TotalSeconds);
 
 container.DeleteIfExists();
-
-streamTable.Delete();
-eventTable.Delete();
-projectionTable.Delete();
 
 public record Cake
 {
