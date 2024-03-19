@@ -72,7 +72,7 @@ public class EventStoreTests
         var actual = await wrapper.Sut.Read();
         actual.Should().BeEquivalentTo(expected);
     }
-    
+
     [Fact]
     public async Task CanReadWithPartial()
     {
@@ -81,7 +81,7 @@ public class EventStoreTests
         wrapper.WriteSegment(TestData.AtDate, 0, $"{TestData.At:yyyyMMdd\\THHmmssK}TEST."); // <== This is a incomplete event that doesn't end with a newline
 
         var actual = await wrapper.Sut.Read();
-        actual.Should().BeEquivalentTo(new []{new Record(TestData.At, new(TestData.A1.GetType()), TestData.A1)});
+        actual.Should().BeEquivalentTo(new[] { new Record(TestData.At, new(TestData.A1.GetType()), TestData.A1) });
     }
 
     [Fact]
@@ -161,5 +161,27 @@ public class EventStoreTests
         await wrapper.Sut.PollNow();
 
         receivedCount.Should().Be(sentCount);
+    }
+
+    [Fact]
+    public async Task CanWriteReadMultiThread()
+    {
+        var containerName = $"unittest-{DateTime.Now:yyyyMMddHHmmss}-{Guid.NewGuid():N}";
+        using var wrapper1 = new EventStoreWrapper(containerName: containerName);
+        using var wrapper2 = new EventStoreWrapper(containerName: containerName);
+        await wrapper1.Sut.Write(TestData.A1, TestData.At);
+        await wrapper1.Sut.Write(TestData.A2, TestData.At);
+        await wrapper1.Sut.Write(TestData.B, TestData.At);
+
+        await wrapper2.Sut.PollNow();
+
+        var expected = new Object[]
+        {
+            TestData.A1,
+            TestData.A2,
+            TestData.B,
+        }.Select(a => new Record(TestData.At, new(a.GetType()), a));
+        var actual = await wrapper2.Sut.Read();
+        actual.Should().BeEquivalentTo(expected);
     }
 }

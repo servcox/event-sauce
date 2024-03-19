@@ -15,9 +15,9 @@ public sealed class EventStoreWrapper : IDisposable
     public BlobContainerClient Container { get; }
     public EventStore Sut { get; }
 
-    public EventStoreWrapper(Action<EventStoreConfiguration>? builder = null)
+    public EventStoreWrapper(Action<EventStoreConfiguration>? builder = null, String? containerName = null)
     {
-        var containerName = $"unittest-{DateTime.Now:yyyyMMddHHmmss}";
+         containerName ??= $"unittest-{DateTime.Now:yyyyMMddHHmmss}-{Guid.NewGuid():N}";
         Container = new(ConnectionString, containerName);
         Sut = new(Container, Prefix, cfg =>
         {
