@@ -22,6 +22,8 @@ public sealed class EventStreamTests
         EventType.Register<TestData.TestEventA>();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(Encoded));
         var expected = Decoded.Select(i => new Record(TestData.At, new(i.GetType()), i)).ToList();
-        EventStream.Decode(stream).Should().BeEquivalentTo(expected);
+        var (length, records) = EventStream.Decode(stream);
+        length.Should().Be(Encoded.Length);
+        records.Should().BeEquivalentTo(expected);
     }
 }
