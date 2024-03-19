@@ -112,18 +112,23 @@ public class EventStoreTests
         var receivedCount = 0;
         using var wrapper = new EventStoreWrapper(cfg => cfg
             .PollEvery(TimeSpan.FromSeconds(0.5)) // <== NOTE
-            .OnEvent<TestData.TestEventA>((_, _) => receivedCount++)
+            .OnEvent<TestData.TestEventA>((_, metadata) =>
+            {
+                metadata.At.Should().Be(TestData.At);
+                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventA));
+                receivedCount++;
+            })
         );
 
         const Int32 factor = 100;
         var sentCount = 0;
-        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() });
+        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() }, TestData.At);
 
         await Task.Delay(1000);
 
         receivedCount.Should().Be(sentCount);
 
-        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() });
+        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() }, TestData.At);
 
         await Task.Delay(1000);
 
@@ -135,18 +140,23 @@ public class EventStoreTests
     {
         var receivedCount = 0;
         using var wrapper = new EventStoreWrapper(cfg => cfg
-            .OnEvent<TestData.TestEventA>((_, _) => receivedCount++)
+            .OnEvent<TestData.TestEventA>((_, metadata) =>
+            {
+                metadata.At.Should().Be(TestData.At);
+                metadata.Type.TryDecode().Should().Be(typeof(TestData.TestEventA));
+                receivedCount++;
+            })
         );
 
         const Int32 factor = 100;
         var sentCount = 0;
-        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() });
+        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() }, TestData.At);
 
         await wrapper.Sut.PollNow();
 
         receivedCount.Should().Be(sentCount);
 
-        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() });
+        for (var i = 0; i < factor; i++) await wrapper.Sut.Write(new TestData.TestEventA { A = sentCount++.ToString() }, TestData.At);
 
         await wrapper.Sut.PollNow();
 
